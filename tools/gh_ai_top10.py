@@ -16,6 +16,7 @@ import sqlite3
 import sys
 import time
 from datetime import date, datetime, timedelta
+from html import unescape
 from pathlib import Path
 
 import requests
@@ -27,6 +28,7 @@ SOURCES_PATH = ROOT / "tools" / "config" / "sources.yaml"
 DATA_DIR = ROOT / "data"
 RESULT_DIR = ROOT / "result"
 DB_PATH = DATA_DIR / "wise.db"
+TRENDING_URL = "https://github.com/trending"
 
 MAX_TRANSLATE_BYTES = 5000   # ADR-0010 翻译上限（UTF-8 字节）
 MIN_DESC_BYTES = 80          # 描述过短时从 README 文首补充摘要
@@ -98,6 +100,50 @@ def fetch_readme(full_name, token):
         return ""
     r.raise_for_status()
     return r.text
+
+
+def fetch_trending(since):
+    """解析 GitHub Trending 页面（mode: trending，ADR-0013）。
+
+    每行自带：仓库、描述、语言、总 star、本期增量（如 "16,763 stars this month"）。
+    解析 0 行视为页面改版，抛错由上层按源隔离处理。
+    """
+    for attempt in (1, 2, 3):
+        try:
+            r = requests.get(TRENDING_URL, params={"since": since},
+                             headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
+            r.raise_for_status()
+            break
+        except requests.RequestException as exc:
+            if attempt == 3:
+                raise
+            print("  [warn] trending attempt%d: %s" % (attempt, exc), file=sys.stderr)
+            time.sleep(5)
+    STATS["gh_api"] += 1
+    repos = []
+    for block in r.text.split('<article class="Box-row">')[1:]:
+        m = re.search(r'<h2[^>]*>.*?href="/([^/"]+)/([^"]+)"', block, re.S)
+        if not m:
+            continue
+        owner, name = m.group(1), m.group(2)
+        dm = re.search(r'<p class="col-9[^"]*">(.*?)</p>', block, re.S)
+        desc = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", dm.group(1)))).strip() if dm else ""
+        lm = re.search(r'itemprop="programmingLanguage">([^<]+)', block)
+        sm = re.search(r'href="/[^/]+/[^/]+/stargazers"[^>]*>\s*<svg.*?</svg>\s*([\d,]+)', block, re.S)
+        pm = re.search(r"([\d,]+) stars (this month|this week|today)", block)
+        repos.append({
+            "full_name": "%s/%s" % (owner, name),
+            "html_url": "https://github.com/%s/%s" % (owner, name),
+            "description": desc,
+            "stargazers_count": int(sm.group(1).replace(",", "")) if sm else 0,
+            "language": lm.group(1).strip() if lm else None,
+            "topics": [],
+            "pushed_at": "",
+            "trending_delta": ("%s stars %s" % (pm.group(1), pm.group(2))) if pm else "",
+        })
+    if not repos:
+        raise RuntimeError("Trending 页面解析到 0 行，GitHub 可能改版（ADR-0013 风险项）")
+    return repos
 
 
 # ---------- 步骤 2：获取摘要（级联，纯工具） ----------
@@ -236,25 +282,38 @@ def cell(text):
 def render_md(entries, query, out_path, stats, elapsed, label=None):
     title = ("GitHub 热门项目 Top %d（%s）" % (len(entries), label)) if label \
         else ("GitHub AI 热门项目 Top %d" % len(entries))
+    is_trending = "github.com/trending" in query
+    data_src = "GitHub Trending 页面解析（本期 star 增量排序）" if is_trending \
+        else "GitHub Search API（官方接口，按 star 数降序）"
     lines = [
         "# " + title, "",
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "- 数据来源：GitHub Search API（官方接口，按 star 数降序）",
+        "- 数据来源：%s" % data_src,
         "- 查询条件：`%s`" % query,
         "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布", "",
-        "| 排名 | 项目 | Stars | 语言 | 中文简介 |", "|---|---|---|---|---|",
     ]
+    has_delta = any(e["meta"].get("period_delta") for e in entries)
+    lines += ["| 排名 | 项目 | Stars | %s语言 | 中文简介 |" % ("本期新增 | " if has_delta else ""),
+              "|" + "---|" * (6 if has_delta else 5)]
     for i, e in enumerate(entries, 1):
         brief = e["summary_zh"].split("\n")[0][:120]
-        lines.append("| %d | [%s](%s) | %s | %s | %s |" % (
-            i, e["title"], e["url"], format(e["stars"], ","), e["meta"].get("language") or "-",
-            cell(brief)))
+        lang_col = e["meta"].get("language") or "-"
+        if has_delta:
+            delta = (e["meta"].get("period_delta", "")
+                     .replace(" stars this month", "★/月")
+                     .replace(" stars this week", "★/周")
+                     .replace(" stars today", "★/日")) or "-"
+            lines.append("| %d | [%s](%s) | %s | %s | %s | %s |" % (
+                i, e["title"], e["url"], format(e["stars"], ","), delta, lang_col, cell(brief)))
+        else:
+            lines.append("| %d | [%s](%s) | %s | %s | %s |" % (
+                i, e["title"], e["url"], format(e["stars"], ","), lang_col, cell(brief)))
     lines += ["", "## 详情", ""]
     for i, e in enumerate(entries, 1):
         lines += ["### %d. %s（%s★）" % (i, e["title"], format(e["stars"], ",")), ""]
         lines.append("- 链接：%s" % e["url"])
         lines.append("- 主题：%s" % ", ".join(e["meta"].get("topics", [])[:8]))
-        lines.append("- 最近推送：%s" % e["published_at"][:10])
+        lines.append("- 最近推送：%s" % (e["published_at"][:10] or "—"))
         lines.append("- 摘要来源：%s | 翻译：%s" % (e["summary_from"], e["lang"]))
         lines.append("- 中文简介：%s" % e["summary_zh"].replace("\n", " "))
         if e["lang"] != "zh-skip":
@@ -282,19 +341,28 @@ def main():
     args = ap.parse_args()
 
     label = None
+    trending_since = None
     if args.source:
         entry = load_source_entry(args.source)
-        args.query = entry.get("query") or ""
-        args.per_page = int(entry.get("per_page") or 10)
         label = args.source
         STATS["source"] = args.source
+        if entry.get("mode") == "trending":
+            trending_since = entry.get("since", "monthly")
+            args.query = "%s?since=%s" % (TRENDING_URL, trending_since)
+        else:
+            args.query = entry.get("query") or ""
+            args.per_page = int(entry.get("per_page") or 10)
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    print("[1/5] 搜索：%s" % args.query)
-    repos = search_repos(args.query, args.per_page, token)
+    if trending_since:
+        print("[1/5] 解析 Trending 页面：since=%s" % trending_since)
+        repos = fetch_trending(trending_since)
+    else:
+        print("[1/5] 搜索：%s" % args.query)
+        repos = search_repos(args.query, args.per_page, token)
     print("      命中 %d 个项目" % len(repos))
 
     entries = []
@@ -312,7 +380,8 @@ def main():
             "published_at": (repo.get("pushed_at") or "")[:19],
             "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "meta": {"language": repo.get("language"),
-                     "topics": repo.get("topics") or []},
+                     "topics": repo.get("topics") or [],
+                     "period_delta": repo.get("trending_delta", "")},
         })
         time.sleep(FETCH_INTERVAL)
 

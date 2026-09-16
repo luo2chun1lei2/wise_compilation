@@ -49,4 +49,5 @@
 | 21 | 09-16 约18:10 | 头部指引行也不需要，成本信息只出现在文末统计表 | 文档简洁 | commit 8ab98f6 |
 | 22 | 09-16 约18:30 | 关注四个 GitHub topic（codex / Artificial Intelligence / Agent Harness / ai-agents）并试验 | 多源配置验证 | sources.yaml 四源 + verify.md V2 |
 | 23 | 09-16 约18:50 | 结果文件按日期文件夹归档（如 result/2026-09-16/），文件名不再带日期 | 文件多了需要组织 | design §2 + commit 7761584 |
-| 24 | 09-16 约19:05 | 问：GitHub 能否查 star 提升快的项目（如月增 1000★） | 热点发现能力 | T11 调查：官方无此查询，采用自记录基线 |
+| 24 | 09-16 约19:05 | 问：GitHub 能否查 star 提升快的项目（如月增 1000★） | 热点发现能力 | T11 调查 |
+| 25 | 09-16 约19:10 | 不采用"自记录基线"；改为解析 GitHub Trending 页面获取本期 star 增量 | 增速数据获取方式 | ADR-0013 + verify V3（trending 源实测 21 行） |

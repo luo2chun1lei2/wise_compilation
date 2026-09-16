@@ -169,15 +169,26 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 
 ### 决策
 
-主方案：`star_history(url, date, stars)` 每日快照表，汇编时按窗口算 delta（如"近 30 天 +1000★"过滤）；对需立即知道历史增速的新仓库，可选 Stargazers API 方案（需 token、<40k★）。
+~~主方案：自记录基线~~（2026-09-16 用户否决）。**主方案改为：解析 GitHub Trending 页面**（`mode: trending`，ADR-0013）——页面每行自带"本期新增 N stars"，一次抓取即得增速榜单；自记录基线不采用。
 
 ## ADR
+
+### ADR-0013: github 源新增 trending 模式——解析 github.com/trending 页面
+
+- **状态**：已接受（2026-09-16，用户指定；修订 ADR-0012 中"不爬 Trending 页"的条款）
+- **决策**：`sources.yaml` 的 github 类型支持 `mode: trending`（参数 `since: daily|weekly|monthly`）：抓取 `github.com/trending?since=X`，按行解析出 仓库/描述/语言/总star/**本期 star 增量**，全流程复用数据流管道，产出文档带「本期新增」列。
+- **风险与错误处理**：
+  1. HTML 改版风险——解析到 0 行即抛错、按源隔离不影响其他源（ADR-0006）；
+  2. github.com 网页域名偶发不可达（2026-09-16 实测超时，api.github.com 不受影响）——3 次退避重试；
+  3. Trending 无 topic 过滤（全站榜），如需 AI 过滤可在汇编层按关键词/项目清单筛选。
+- **后果**：直接获得"月增 N★"级别的增速数据，零第三方依赖；代价是依赖页面结构（已固化解析与 0 行告警）。实测：21 行全部解析成功（V3）。
 
 ### ADR-0012: GitHub 源采用官方 Search API（策略 C 组合查询），不爬 Trending 页
 
 - **状态**：已接受（2026-09-16）
 - **决策**：`sources.yaml` 的 `github` 类型用 Search API（topic + stars 阈值 + pushed 时间窗，参数可配）+ README raw 接口；不爬取 trending HTML。
 - **后果**：稳定、官方支持、限额可预期；"热"的语义由查询参数表达，可按需调整（如仅看新项目用策略 A）。
+- **修订**：2026-09-16 起"不爬 Trending 页"条款由 [ADR-0013](#adr-0013-github-源新增-trending-模式解析-githubcomtrending-页面) 的 trending 模式取代（用户指定）。
 
 ### ADR-0001: wiki 发布采用「表单登录 + cookie 会话 + MinDoc Web API」
 

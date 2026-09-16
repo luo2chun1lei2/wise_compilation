@@ -4,6 +4,14 @@
 
 sources:
   # ---- GitHub（已验证，T3/ADR-0012；四个 topic 2026-09-16 实测命中充足）----
+  # mode: search=组合查询取热门 | trending=解析 github.com/trending 页（ADR-0013）| repo=跟踪指定仓库
+  - name: github-trending-monthly
+    type: github
+    mode: trending              # 每行自带"本期新增 star"增量数据
+    since: monthly              # daily | weekly | monthly
+    topic: tech
+    enabled: true
+
   - name: github-codex
     type: github
     mode: search

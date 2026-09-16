@@ -29,3 +29,17 @@
   - 每个 topic 的文档仍展示该 topic 完整 Top10（去重只作用于库与后续汇编，避免同一条目在周报中重复计数）。
 - **发现的问题与改进项**：topic 热度差异大（codex 命中 1313 vs agent-harness 268），star 阈值与时间窗已按源分别配置；后续若某 topic 结果变稀，调该源的 query 即可。
 - **结论**：多源配置驱动（ADR-0007）在 github 类型上验证可行。
+
+## V3 GitHub Trending 页面解析源（2026-09-16）
+
+- **目的**：验证 `mode: trending`（ADR-0013，用户指定取代自记录基线）：解析 github.com/trending 获取**本期 star 增量**。
+- **命令**：`python3 tools/gh_ai_top10.py --source github-trending-monthly`
+- **结果**：✅
+  - 页面无需登录；21 行全部解析成功（仓库/描述/语言/总star/本期增量，如 archify +50,700★/月）。
+  - 产出 `result/2026-09-16/github-trending-monthly.md`，表格带「本期新增」列。
+  - 全流程复用数据流管道（摘要级联→翻译→存库→成文）。
+- **发现的问题与改进项**：
+  1. 首次运行 render 有格式串 bug（列数不匹配），已修复并用合成数据回归测试；
+  2. github.com 网页域名出现间歇性不可达（api.github.com 正常）——已加 3 次退避重试；生产运行需容忍偶发跳过；
+  3. Trending 无 topic 过滤（全站榜），AI 过滤留待汇编层做。
+- **结论**：trending 模式可行，已入 sources.yaml（github-trending-monthly，enabled）。
