@@ -221,8 +221,7 @@ def render_md(entries, query, out_path, stats, elapsed):
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
         "- 数据来源：GitHub Search API（官方接口，按 star 数降序）",
         "- 查询条件：`%s`" % query,
-        "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布",
-        "- 成本与耗时：见文末「成本与运行统计」", "",
+        "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布", "",
         "| 排名 | 项目 | Stars | 语言 | 中文简介 |", "|---|---|---|---|---|",
     ]
     for i, e in enumerate(entries, 1):
