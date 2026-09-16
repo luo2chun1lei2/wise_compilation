@@ -35,8 +35,8 @@
 
 ### 数据流
 
-1. **采集**（每日）：按 `sources.yaml` 逐源拉取 → 规范化条目（标题/链接/日期/原文摘要）→ 去重后入 SQLite，原料索引追加至 `material/`（只存链接+简介，符合需求约束）。
-2. **汇编**（每周/手动；工具优先，ADR-0009）：取周期内新条目 → 翻译（**LLM + 字节上限**：简介/摘录 ≤ `translate.max_bytes`（默认 5000B）才译，超限按 `translate.oversize`（keep_original/link_only）处理，标题始终翻译，ADR-0010）→ 归类与过滤（`topics.yaml` 关键词规则 + 重要性启发式，无 LLM）→ 简介（RSS 自带摘要 / trafilatura 正文抽取，工具生成）→ 按专题模板渲染 markdown（**纯模板成文**）→ 追加「趋势观察」（规则统计表格；LLM 解读仅当 `llm_polish: true` 时生成，默认关闭）→ 写 `result/`。
+1. **采集**（每日；逐条处理管道：**获取材料 → 获取摘要 → 翻译判定 → 存库**，ADR-0011）：按 `sources.yaml` 逐源拉取 → 规范化 + 去重（已见条目跳过）→ **摘要级联提取**（纯工具：feed 自带摘要 → 文首 TL;DR/Abstract 段 → 文末 Summary/Conclusion 节 → 正文前 N 字节截断；中间正文不送 LLM）→ 归类（`topics.yaml` 关键词规则 + 重要性启发式）→ 翻译判定（中文源跳过；外文按 ADR-0010：简介 ≤ `translate.max_bytes` 走 LLM、超限 `keep_original/link_only`、标题始终译）→ 存 SQLite（含 `summary_from` 标记来源），原料索引追加至 `material/`（只存链接+摘要，符合需求约束）。
+2. **汇编**（每周/手动；纯工具，零 LLM）：按专题/周期查询已入库条目 → 按专题模板渲染 markdown（新闻周报 / 技术汇总）→ 追加「趋势观察」（规则统计表格；LLM 解读仅当 `llm_polish: true` 时生成，默认关闭）→ 写 `result/`。
 3. **发布 wiki**：登录 MinDoc（30 天 remember cookie，失效自动重登）→ 按期次创建/更新文档（`cover=yes` 覆盖）→ 记录 `publish_log`。
 4. **分发**：各通道从 `result/` 读取本期成品 → 按「卡片模式（摘要+wiki 链接）」或「全文模式（分片）」推送 → 记录 `publish_log`。
 
@@ -54,8 +54,9 @@ tools/
       wiki_src.py          # 通用 wiki 源分析器（URL 配置驱动：RSS→wiki API→sitemap→有界爬取，ADR-0005）
     pipeline/
       dedupe.py            # URL 规范化 + 内容 hash + 已见判重
+      summarize.py         # 摘要级联提取：feed自带→文首TL;DR/Abstract→文末Summary/Conclusion→正文截断（纯工具，ADR-0011）
       classify.py          # 专题归类 + 重要性过滤（关键词规则/启发式，无 LLM）
-      translate.py         # 英译中：LLM + 字节上限路由（max_bytes 默认 5000B；超限 keep_original/link_only，ADR-0010）
+      translate.py         # 英译中（采集期逐条执行）：LLM + 字节上限路由（max_bytes 默认 5000B；超限 keep_original/link_only，ADR-0010）
       digest.py            # 专题模板渲染（新闻周报 / 技术汇总，纯模板成文）
       trend.py             # 趋势统计（本期 vs 上期频次、条目数、star 增速，规则计算）
       llm.py               # LLM 客户端：仅兜底（翻译路由 / llm_polish 润色），默认低频使用
@@ -131,7 +132,7 @@ channels:
 | 表 | 关键字段 | 用途 |
 |---|---|---|
 | `sources` | id, name, type(rss/github/web), url, topic, enabled, last_fetch_at, fail_count | 源注册表与健康状况 |
-| `items` | id, source_id, url_norm(唯一), title, title_zh, summary_zh, lang, published_at, content_hash, status(new/used/skipped) | 采集条目；去重键 = url_norm |
+| `items` | id, source_id, url_norm(唯一), title, title_zh, summary, summary_zh, **summary_from(feed/head/tail/truncate)**, lang, published_at, content_hash, status(new/used/skipped) | 采集条目；去重键 = url_norm |
 | `digests` | id, topic, period_start, period_end, file_path, wiki_doc_id, version | 每期汇编的登记与 wiki 映射 |
 | `publish_log` | id, digest_id, channel(wiki/feishu/…), status, detail, at | 各通道发布结果，可重放 |
 | `runs` | id, kind(collect/compile/publish/deliver), started_at, finished_at, status, stats(JSON), error | 每次运行的汇总报告与告警依据 |
