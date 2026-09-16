@@ -15,13 +15,15 @@ import re
 import sqlite3
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SECRET_PATH = ROOT / "ai" / "secret.md"
+SOURCES_PATH = ROOT / "tools" / "config" / "sources.yaml"
 DATA_DIR = ROOT / "data"
 RESULT_DIR = ROOT / "result"
 DB_PATH = DATA_DIR / "wise.db"
@@ -51,6 +53,22 @@ def cjk_ratio(text):
         return 0.0
     cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
     return cjk / max(len(text), 1)
+
+
+def resolve_query(query):
+    """把查询里的 now-Nd 占位符解析为具体日期（如 now-7d → 2026-09-09）。"""
+    return re.sub(r"now-(\d+)d",
+                  lambda m: (date.today() - timedelta(days=int(m.group(1)))).strftime("%Y-%m-%d"),
+                  query)
+
+
+def load_source_entry(name):
+    """从 tools/config/sources.yaml 读取指定的 github 源配置。"""
+    data = yaml.safe_load(SOURCES_PATH.read_text(encoding="utf-8"))
+    for s in data.get("sources") or []:
+        if s.get("name") == name and s.get("type") == "github" and s.get("enabled", True):
+            return s
+    raise SystemExit("在 %s 中未找到启用的 github 源 %r" % (SOURCES_PATH, name))
 
 
 def gh_headers(token, raw=False):
@@ -215,9 +233,11 @@ def cell(text):
     return (text or "").replace("|", "\\|").replace("\n", " ")
 
 
-def render_md(entries, query, out_path, stats, elapsed):
+def render_md(entries, query, out_path, stats, elapsed, label=None):
+    title = ("GitHub 热门项目 Top %d（%s）" % (len(entries), label)) if label \
+        else ("GitHub AI 热门项目 Top %d" % len(entries))
     lines = [
-        "# GitHub AI 热门项目 Top %d" % len(entries), "",
+        "# " + title, "",
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
         "- 数据来源：GitHub Search API（官方接口，按 star 数降序）",
         "- 查询条件：`%s`" % query,
@@ -254,11 +274,21 @@ def render_md(entries, query, out_path, stats, elapsed):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--source", help="按名运行 tools/config/sources.yaml 中的 github 源")
     ap.add_argument("--query", default=DEFAULT_QUERY.format(
         week=date.fromtimestamp(time.time()).strftime("%Y-%m-%d")))
     ap.add_argument("--per-page", type=int, default=10)
     ap.add_argument("--skip-translate", action="store_true")
     args = ap.parse_args()
+
+    label = None
+    if args.source:
+        entry = load_source_entry(args.source)
+        args.query = entry.get("query") or ""
+        args.per_page = int(entry.get("per_page") or 10)
+        label = args.source
+        STATS["source"] = args.source
+    args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
@@ -301,9 +331,10 @@ def main():
     print("      新增 %d 条（其余为已见去重）" % inserted)
 
     RESULT_DIR.mkdir(exist_ok=True)
-    out = RESULT_DIR / ("github-ai-top10-%s.md" % date.today().strftime("%Y-%m-%d"))
+    stem = label if label else "github-ai-top10"
+    out = RESULT_DIR / ("%s-%s.md" % (stem, date.today().strftime("%Y-%m-%d")))
     print("[5/5] 生成 %s" % out)
-    render_md(entries, args.query, out, STATS, elapsed)
+    render_md(entries, args.query, out, STATS, elapsed, label)
 
 
 if __name__ == "__main__":

@@ -3,13 +3,37 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
-  # ---- GitHub（已验证，T3/ADR-0012）----
-  - name: github-ai-hot
+  # ---- GitHub（已验证，T3/ADR-0012；四个 topic 2026-09-16 实测命中充足）----
+  - name: github-codex
     type: github
-    mode: search                    # search=组合查询取热门；repo=跟踪指定仓库（watch 字段）
+    mode: search
+    query: "topic:codex stars:>50 pushed:>now-30d"
+    per_page: 10
+    topic: tech
+    enabled: true
+
+  - name: github-artificial-intelligence
+    type: github
+    mode: search
     query: "topic:artificial-intelligence stars:>500 pushed:>now-7d"
     per_page: 10
-    topic: tech                     # 归入 topics.yaml 的专题
+    topic: tech
+    enabled: true
+
+  - name: github-agent-harness
+    type: github
+    mode: search
+    query: "topic:agent-harness stars:>5 pushed:>now-100d"
+    per_page: 10
+    topic: tech
+    enabled: true
+
+  - name: github-ai-agents
+    type: github
+    mode: search
+    query: "topic:ai-agents stars:>300 pushed:>now-7d"
+    per_page: 10
+    topic: tech
     enabled: true
 
   # ---- RSS（待 T2 核实可用性后逐个启用；以下是候选示例，默认关闭）----
