@@ -37,8 +37,16 @@ FETCH_INTERVAL = 1.0         # 对 github.com 的请求间隔（ADR-0006 礼貌�
 DEFAULT_QUERY = "topic:artificial-intelligence stars:>500 pushed:>{week}"
 
 # 运行统计（成本项）：token 数来自 GLM 响应的 usage 字段，精确值
-STATS = {"gh_api": 0, "llm_calls": 0, "prompt_tokens": 0,
+STATS = {"gh_api": 0, "zhihu_api": 0, "llm_calls": 0, "prompt_tokens": 0,
          "completion_tokens": 0, "total_tokens": 0}
+
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
+ZHIHU_HOT_URL = "https://api.zhihu.com/topstory/hot-list"
+# 知乎热榜 AI 过滤关键词（sources.yaml 的 keywords 可追加，ADR-0014）
+AI_KEYWORDS = ["AI", "人工智能", "大模型", "LLM", "GPT", "ChatGPT", "智能体", "Agent",
+               "深度学习", "机器学习", "DeepSeek", "豆包", "文心", "通义", "Kimi",
+               "Claude", "OpenAI", "Gemini", "Sora", "算力", "AGI", "神经网络",
+               "AIGC", "具身智能", "RAG", "Scaling"]
 
 
 def load_secret():
@@ -65,12 +73,46 @@ def resolve_query(query):
 
 
 def load_source_entry(name):
-    """从 tools/config/sources.yaml 读取指定的 github 源配置。"""
+    """从 tools/config/sources.yaml 读取指定源的配置。"""
     data = yaml.safe_load(SOURCES_PATH.read_text(encoding="utf-8"))
     for s in data.get("sources") or []:
-        if s.get("name") == name and s.get("type") == "github" and s.get("enabled", True):
+        if s.get("name") == name and s.get("enabled", True):
             return s
-    raise SystemExit("在 %s 中未找到启用的 github 源 %r" % (SOURCES_PATH, name))
+    raise SystemExit("在 %s 中未找到启用的源 %r" % (SOURCES_PATH, name))
+
+
+def fetch_zhihu_hot(limit, ai_filter, extra_kws):
+    """知乎全站热榜（mode: hot-list，ADR-0014）。
+
+    无需登录；target 自带 标题/excerpt 摘要/回答数/创建时间，detail_text 为热度。
+    ai_filter=True 时仅保留标题命中 AI 关键词的条目（话题级接口需登录，未采用）。
+    """
+    r = requests.get(ZHIHU_HOT_URL, params={"limit": limit, "domain": "www.zhihu.com"},
+                     headers={"User-Agent": UA}, timeout=30)
+    r.raise_for_status()
+    STATS["zhihu_api"] += 1
+    kws = set(k.lower() for k in AI_KEYWORDS) | set(k.lower() for k in extra_kws)
+    repos = []
+    for it in r.json().get("data", []):
+        t = it.get("target") or {}
+        title = t.get("title", "").strip()
+        if not title:
+            continue
+        if ai_filter and not any(k in title.lower() for k in kws):
+            continue
+        created = t.get("created")
+        repos.append({
+            "full_name": title,
+            "html_url": "https://www.zhihu.com/question/%s" % t.get("id"),
+            "description": (t.get("excerpt") or "").strip() or it.get("detail_text", ""),
+            "stargazers_count": 0,
+            "language": None,
+            "topics": [],
+            "pushed_at": datetime.fromtimestamp(created).strftime("%Y-%m-%dT%H:%M:%S") if created else "",
+            "zhihu_meta": {"heat": it.get("detail_text", ""), "answers": t.get("answer_count", 0)},
+            "no_readme": True,
+        })
+    return repos
 
 
 def gh_headers(token, raw=False):
@@ -176,9 +218,9 @@ def extract_head_summary(readme_md, limit=HEAD_SUMMARY_BYTES):
 
 
 def summary_cascade(repo, token):
-    """级联：description → README 文首 → 空串。返回 (summary, source)。"""
+    """级联：description → README 文首 → 空串（no_readme 的源跳过 README）。返回 (summary, source)。"""
     desc = (repo.get("description") or "").strip()
-    if len(desc.encode("utf-8")) >= MIN_DESC_BYTES:
+    if repo.get("no_readme") or len(desc.encode("utf-8")) >= MIN_DESC_BYTES:
         return desc, "feed"
     time.sleep(FETCH_INTERVAL)
     try:
@@ -280,11 +322,20 @@ def cell(text):
 
 
 def render_md(entries, query, out_path, stats, elapsed, label=None):
-    title = ("GitHub 热门项目 Top %d（%s）" % (len(entries), label)) if label \
-        else ("GitHub AI 热门项目 Top %d" % len(entries))
     is_trending = "github.com/trending" in query
-    data_src = "GitHub Trending 页面解析（本期 star 增量排序）" if is_trending \
-        else "GitHub Search API（官方接口，按 star 数降序）"
+    is_zhihu = bool(entries) and all("heat" in e["meta"] for e in entries)
+    if is_zhihu:
+        title = "知乎热榜 AI 筛选 Top %d" % len(entries)
+    elif label:
+        title = "GitHub 热门项目 Top %d（%s）" % (len(entries), label)
+    else:
+        title = "GitHub AI 热门项目 Top %d" % len(entries)
+    if is_zhihu:
+        data_src = "知乎热榜 API（api.zhihu.com，无需登录，AI 关键词过滤）"
+    elif is_trending:
+        data_src = "GitHub Trending 页面解析（本期 star 增量排序）"
+    else:
+        data_src = "GitHub Search API（官方接口，按 star 数降序）"
     lines = [
         "# " + title, "",
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -293,24 +344,38 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布", "",
     ]
     has_delta = any(e["meta"].get("period_delta") for e in entries)
-    lines += ["| 排名 | 项目 | Stars | %s语言 | 中文简介 |" % ("本期新增 | " if has_delta else ""),
-              "|" + "---|" * (6 if has_delta else 5)]
-    for i, e in enumerate(entries, 1):
-        brief = e["summary_zh"].split("\n")[0][:120]
-        lang_col = e["meta"].get("language") or "-"
-        if has_delta:
-            delta = (e["meta"].get("period_delta", "")
-                     .replace(" stars this month", "★/月")
-                     .replace(" stars this week", "★/周")
-                     .replace(" stars today", "★/日")) or "-"
-            lines.append("| %d | [%s](%s) | %s | %s | %s | %s |" % (
-                i, e["title"], e["url"], format(e["stars"], ","), delta, lang_col, cell(brief)))
-        else:
+
+    def disp_title(e):
+        t = e["title"]
+        return t if len(t) <= 36 else t[:35] + "…"
+
+    if is_zhihu:
+        lines += ["| 排名 | 话题 | 热度 | 回答 | 中文简介 |", "|" + "---|" * 5]
+        for i, e in enumerate(entries, 1):
+            ans = e["meta"].get("answers") or 0
             lines.append("| %d | [%s](%s) | %s | %s | %s |" % (
-                i, e["title"], e["url"], format(e["stars"], ","), lang_col, cell(brief)))
+                i, cell(disp_title(e)), e["url"], e["meta"].get("heat") or "-",
+                format(ans, ","), cell(e["summary_zh"].split("\n")[0][:120])))
+    else:
+        lines += ["| 排名 | 项目 | Stars | %s语言 | 中文简介 |" % ("本期新增 | " if has_delta else ""),
+                  "|" + "---|" * (6 if has_delta else 5)]
+        for i, e in enumerate(entries, 1):
+            brief = e["summary_zh"].split("\n")[0][:120]
+            lang_col = e["meta"].get("language") or "-"
+            if has_delta:
+                delta = (e["meta"].get("period_delta", "")
+                         .replace(" stars this month", "★/月")
+                         .replace(" stars this week", "★/周")
+                         .replace(" stars today", "★/日")) or "-"
+                lines.append("| %d | [%s](%s) | %s | %s | %s | %s |" % (
+                    i, cell(disp_title(e)), e["url"], format(e["stars"], ","), delta, lang_col, cell(brief)))
+            else:
+                lines.append("| %d | [%s](%s) | %s | %s | %s |" % (
+                    i, cell(disp_title(e)), e["url"], format(e["stars"], ","), lang_col, cell(brief)))
     lines += ["", "## 详情", ""]
     for i, e in enumerate(entries, 1):
-        lines += ["### %d. %s（%s★）" % (i, e["title"], format(e["stars"], ",")), ""]
+        metric = (e["meta"].get("heat") or "-") if is_zhihu else "%s★" % format(e["stars"], ",")
+        lines += ["### %d. %s（%s）" % (i, e["title"], metric), ""]
         lines.append("- 链接：%s" % e["url"])
         lines.append("- 主题：%s" % ", ".join(e["meta"].get("topics", [])[:8]))
         lines.append("- 最近推送：%s" % (e["published_at"][:10] or "—"))
@@ -326,7 +391,10 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
               "| 输出 tokens | %s | GLM usage（精确） |" % format(stats["completion_tokens"], ","),
               "| 合计 tokens | %s | GLM usage（精确） |" % format(stats["total_tokens"], ","),
               "| 边际费用 | ¥0 | GLM 包月订阅（ADR-0008） |",
-              "| GitHub API 调用 | %d 次（限额 60/时，未认证） | 计数 |" % stats["gh_api"],
+              "| GitHub API 调用 | %d 次（限额 60/时，未认证） | 计数 |" % stats["gh_api"]]
+    if stats.get("zhihu_api"):
+        lines.append("| 知乎 API 调用 | %d 次（无需登录） | 计数 |" % stats["zhihu_api"])
+    lines += [
               "| 总耗时（获取→生成） | %.0f 秒 | 计时，统计系统占用时间 |" % elapsed, ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -342,22 +410,33 @@ def main():
 
     label = None
     trending_since = None
+    zhihu_cfg = None
     if args.source:
         entry = load_source_entry(args.source)
         label = args.source
         STATS["source"] = args.source
-        if entry.get("mode") == "trending":
+        stype = entry.get("type")
+        if stype == "github" and entry.get("mode") == "trending":
             trending_since = entry.get("since", "monthly")
             args.query = "%s?since=%s" % (TRENDING_URL, trending_since)
-        else:
+        elif stype == "github":
             args.query = entry.get("query") or ""
             args.per_page = int(entry.get("per_page") or 10)
+        elif stype == "zhihu":
+            zhihu_cfg = entry
+            args.query = "zhihu.com 热榜（AI 关键词过滤）"
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    if trending_since:
+    if zhihu_cfg is not None:
+        print("[1/5] 知乎热榜：limit=%s ai_filter=%s" % (
+            zhihu_cfg.get("limit", 30), zhihu_cfg.get("ai_filter", True)))
+        repos = fetch_zhihu_hot(int(zhihu_cfg.get("limit") or 30),
+                                bool(zhihu_cfg.get("ai_filter", True)),
+                                zhihu_cfg.get("keywords") or [])
+    elif trending_since:
         print("[1/5] 解析 Trending 页面：since=%s" % trending_since)
         repos = fetch_trending(trending_since)
     else:
@@ -373,15 +452,17 @@ def main():
             summary_zh, lang = summary, "zh-skip(--skip-translate)"
         else:
             summary_zh, lang = translate(summary, secret)
+        meta = {"language": repo.get("language"),
+                "topics": repo.get("topics") or [],
+                "period_delta": repo.get("trending_delta", "")}
+        meta.update(repo.get("zhihu_meta") or {})
         entries.append({
             "url_norm": repo["html_url"], "title": repo["full_name"],
             "url": repo["html_url"], "summary": summary, "summary_zh": summary_zh,
             "summary_from": src_from, "lang": lang, "stars": repo["stargazers_count"],
             "published_at": (repo.get("pushed_at") or "")[:19],
             "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "meta": {"language": repo.get("language"),
-                     "topics": repo.get("topics") or [],
-                     "period_delta": repo.get("trending_delta", "")},
+            "meta": meta,
         })
         time.sleep(FETCH_INTERVAL)
 

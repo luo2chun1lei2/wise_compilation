@@ -24,6 +24,7 @@
 | T7 | 飞书群机器人通道 | ✅ 调查完成 / ⏸ 实施延后（ADR-0004，见下文） |
 | T8 | 通用 wiki 源分析器可行性 | ⏸ 待用户提供样例 URL 后实测（ADR-0005） |
 | T11 | GitHub star 增速查询 | ✅ 调查完成（2026-09-16，见 T11 小节：官方 API 无此能力，采用自记录基线） |
+| T12 | 知乎信息源 | ✅ 调查完成（2026-09-16，热榜 API 可用，ADR-0014，实测 V4） |
 | T9 | 非 LLM 翻译工具选型 | ✅ 关闭（2026-09-16 决策改为 **LLM + 字节上限路由**，ADR-0010；Argos 调查留档备用） |
 | T10 | 非 AI 分析手段（归类/摘要/过滤） | ✅ 设计内解决（摘要级联提取：feed 自带/文首 TL;DR/文末总结/截断 + 规则归类 + 启发式过滤，ADR-0011） |
 
@@ -171,6 +172,23 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 
 ~~主方案：自记录基线~~（2026-09-16 用户否决）。**主方案改为：解析 GitHub Trending 页面**（`mode: trending`，ADR-0013）——页面每行自带"本期新增 N stars"，一次抓取即得增速榜单；自记录基线不采用。
 
+## T12 知乎信息源调查（2026-09-16）
+
+### 结论
+
+知乎**全站热榜 API 无需登录**（`GET api.zhihu.com/topstory/hot-list?limit=N&domain=www.zhihu.com`），返回标题/excerpt 自带摘要/回答数/创建时间/热度（detail_text）。已实现为 `zhihu` 源类型 `mode: hot-list`，用 AI 关键词表过滤出 AI 相关条目（ADR-0014）。
+
+### 实测情况
+
+| 入口 | 结果 |
+|---|---|
+| `api.zhihu.com/topstory/hot-list` | ✅ 无需登录；limit=50 实际最多返回 **30 条**；字段齐全 |
+| 话题 feeds API（人工智能 19551275 等路径） | ❌ 404（话题级接口需登录态/签名，未采用） |
+| 网页版 `www.zhihu.com/hot` | ❌ 403（反爬） |
+
+- 全站热榜以时事为主，实测 30 条中 AI 相关约 2 条——过滤后条数少是正常现象，按天采集累积进周报。
+- 知乎内容为中文：`zh-skip` 零 LLM 消耗，摘要直接用接口 `excerpt`（feed 级）。
+
 ## ADR
 
 ### ADR-0013: github 源新增 trending 模式——解析 github.com/trending 页面
@@ -182,6 +200,12 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
   2. github.com 网页域名偶发不可达（2026-09-16 实测超时，api.github.com 不受影响）——3 次退避重试；
   3. Trending 无 topic 过滤（全站榜），如需 AI 过滤可在汇编层按关键词/项目清单筛选。
 - **后果**：直接获得"月增 N★"级别的增速数据，零第三方依赖；代价是依赖页面结构（已固化解析与 0 行告警）。实测：21 行全部解析成功（V3）。
+
+### ADR-0014: 知乎源采用全站热榜 API + AI 关键词过滤
+
+- **状态**：已接受（2026-09-16，用户要求新增知乎源）
+- **决策**：`sources.yaml` 新增 `type: zhihu, mode: hot-list`（limit≤30，`ai_filter: true` 按内置 AI 关键词表过滤标题，`keywords` 可追加）；条目映射：话题=标题、热度=detail_text、回答数=answer_count、摘要=excerpt（feed 级自带）；话题级接口需登录，未采用。
+- **后果**：零登录、零 LLM（中文源自动 zh-skip）获取知乎热点；AI 条目数取决于热榜当日构成（实测 30 条中约 2 条），按天采集累积；如需 AI 话题流全量，后续可由用户提供知乎 cookie 扩展。
 
 ### ADR-0012: GitHub 源采用官方 Search API（策略 C 组合查询），不爬 Trending 页
 

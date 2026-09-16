@@ -3,6 +3,16 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
+  # ---- 知乎（ADR-0014：热榜 API 无需登录；话题级接口需登录未采用）----
+  - name: zhihu-hot
+    type: zhihu
+    mode: hot-list            # 全站热榜（最多 30 条）
+    limit: 30
+    ai_filter: true           # 仅保留标题命中 AI 关键词的条目
+    # keywords: [可在此追加过滤关键词]
+    topic: news
+    enabled: true
+
   # ---- GitHub（已验证，T3/ADR-0012；四个 topic 2026-09-16 实测命中充足）----
   # mode: search=组合查询取热门 | trending=解析 github.com/trending 页（ADR-0013）| repo=跟踪指定仓库
   - name: github-trending-monthly

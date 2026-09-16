@@ -43,3 +43,16 @@
   2. github.com 网页域名出现间歇性不可达（api.github.com 正常）——已加 3 次退避重试；生产运行需容忍偶发跳过；
   3. Trending 无 topic 过滤（全站榜），AI 过滤留待汇编层做。
 - **结论**：trending 模式可行，已入 sources.yaml（github-trending-monthly，enabled）。
+
+## V4 知乎热榜源（2026-09-16）
+
+- **目的**：验证 `type: zhihu, mode: hot-list`（ADR-0014）。
+- **命令**：`python3 tools/gh_ai_top10.py --source zhihu-hot`
+- **结果**：✅
+  - 热榜 API 无需登录，30 条全取；AI 关键词过滤后命中 2 条（华为大模型战略、努比亚豆包 AI 手机），产出 `result/2026-09-16/zhihu-hot.md`（话题/热度/回答数/中文简介表）。
+  - 中文源全部 `zh-skip`：**零 LLM 调用**；摘要用接口自带 `excerpt`（feed 级）。
+  - 修复两处渲染适配：知乎文档标题、详情标题以热度替代 star 数。
+- **发现的问题与改进项**：
+  1. 全站热榜以时事为主，AI 条目占比低（2/30）——按日采集累积进周报，属预期；
+  2. 话题级接口（人工智能等）需登录态，未实现；若需要可后续由用户提供 cookie 扩展。
+- **结论**：知乎源可行，已入 sources.yaml（zhihu-hot，enabled）。

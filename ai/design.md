@@ -103,7 +103,7 @@ result/                    # 汇编成品 = 事实源（入 git；按日期子�
 ```yaml
 sources:
   - name: openai-news          # 唯一别名
-    type: rss                  # 类型：rss | github | wiki | web
+    type: rss                  # 类型：rss | github | zhihu | wiki | web
     url: https://openai.com/news/rss.xml
     topic: tech                # 归入的专题（topics.yaml 定义）
     enabled: true
