@@ -1,0 +1,10 @@
+# 机密文件（不得提交）
+ai/secret.md
+
+# 运行数据（design.md §8）
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/

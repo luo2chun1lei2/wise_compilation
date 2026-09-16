@@ -64,7 +64,6 @@ tools/
     sources.yaml           # 信息源清单（T2 产出初始清单后由用户确认）
     topics.yaml            # 专题定义与模板变量
     channels.yaml          # 分发通道开关与模式（card/full）
-  .env.example             # 密钥模板；真实 .env 不入 git
   requirements.txt
 data/                      # 运行数据（不入 git）：wise.db、cookies.json、日志
 material/                  # 原料索引（AGENTS.md 布局）
@@ -152,7 +151,7 @@ class Channel(ABC):
 
 ## 8. 凭据与安全
 
-- 密钥全部放 `data/.env`（不入 git）：`WIKI_ACCOUNT`、`WIKI_PASSWORD`、`WIKI_BOOK_IDENTIFY`、`FEISHU_WEBHOOK`、`FEISHU_SECRET`、`GITHUB_TOKEN`、`LLM_API_KEY` 等；仓库只提交 `.env.example`。
+- 密钥统一存放于 `ai/secret.md`（**已加入 .gitignore，不入 git**；格式为 `键: 值`，工具直接解析），键包括：`WIKI_URL`、`WIKI_ACCOUNT`、`WIKI_PASSWORD`、`WIKI_BOOK_IDENTIFY`、`FEISHU_WEBHOOK`、`FEISHU_SECRET`、`GITHUB_TOKEN`、`LLM_API_KEY` 等；仓库提交同结构的空模板 `ai/secret.example.md`。
 - cookie jar 与 SQLite 均在 `data/`（gitignore）。
 - 日志不打印密钥与完整 cookie。
 
