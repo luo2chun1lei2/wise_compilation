@@ -20,6 +20,7 @@
 
 > 2026-09-16 更新：Stage C 各外部通道（飞书、微信、外部发布类 wiki）**全部延后**——首期只实现 Stage A/B 与 MinDoc 发布，分发层保留 Channel 抽象（ADR-0004）。
 > Stage A 同时纳入「通用 wiki 源分析器」：配置表中放入外部 wiki 的 URL，程序自动分析其内容/子页作为资料来源（ADR-0005，采集方向，待样例 URL 实测）。
+> 流水线遵循「**工具优先，LLM 仅兜底**」（ADR-0009）：图中"LLM翻译+摘要+分类"更新为 Argos 本地翻译 + 关键词规则归类 + 模板成文，LLM 只做翻译兜底与可选润色。
 
 ### 中间层的职责划分（关键设计）
 
@@ -35,7 +36,7 @@
 ### 数据流
 
 1. **采集**（每日）：按 `sources.yaml` 逐源拉取 → 规范化条目（标题/链接/日期/原文摘要）→ 去重后入 SQLite，原料索引追加至 `material/`（只存链接+简介，符合需求约束）。
-2. **汇编**（每周/手动）：取周期内新条目 → LLM 一次调用完成「翻译为中文 + 生成简介 + 归入专题」→ 按专题模板渲染 markdown（新闻周报 / 技术汇总）→ 追加「趋势观察」小节（规则统计 + LLM 一段解读）→ 写 `result/`。
+2. **汇编**（每周/手动；工具优先，ADR-0009）：取周期内新条目 → 翻译（Argos 本地库；长文/关键条目按长度阈值路由 LLM，T9）→ 归类与过滤（`topics.yaml` 关键词规则 + 重要性启发式，无 LLM）→ 简介（RSS 自带摘要 / trafilatura 正文抽取，工具生成）→ 按专题模板渲染 markdown（**纯模板成文**）→ 追加「趋势观察」（规则统计表格；LLM 解读仅当 `llm_polish: true` 时生成，默认关闭）→ 写 `result/`。
 3. **发布 wiki**：登录 MinDoc（30 天 remember cookie，失效自动重登）→ 按期次创建/更新文档（`cover=yes` 覆盖）→ 记录 `publish_log`。
 4. **分发**：各通道从 `result/` 读取本期成品 → 按「卡片模式（摘要+wiki 链接）」或「全文模式（分片）」推送 → 记录 `publish_log`。
 
@@ -53,9 +54,11 @@ tools/
       wiki_src.py          # 通用 wiki 源分析器（URL 配置驱动：RSS→wiki API→sitemap→有界爬取，ADR-0005）
     pipeline/
       dedupe.py            # URL 规范化 + 内容 hash + 已见判重
-      llm.py               # LLM 客户端：翻译+摘要+分类（一次调用，schema 校验输出）
-      digest.py            # 专题模板渲染（新闻周报 / 技术汇总）
-      trend.py             # 趋势统计（本期 vs 上期频次、条目数、star 增速）
+      classify.py          # 专题归类 + 重要性过滤（关键词规则/启发式，无 LLM）
+      translate.py         # 英译中：Argos Translate 本地库优先，按长度阈值路由 LLM（T9/ADR-0009）
+      digest.py            # 专题模板渲染（新闻周报 / 技术汇总，纯模板成文）
+      trend.py             # 趋势统计（本期 vs 上期频次、条目数、star 增速，规则计算）
+      llm.py               # LLM 客户端：仅兜底（翻译路由 / llm_polish 润色），默认低频使用
     wiki/
       mindoc.py            # MinDoc 客户端：登录/会话续期/建文档/写内容/读内容
     deliver/

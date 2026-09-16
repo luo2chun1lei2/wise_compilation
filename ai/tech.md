@@ -18,11 +18,13 @@
 | T1 | 公司 wiki（MinDoc）架构与写入 API | ✅ 完成（2026-09-16，见下文） |
 | T2 | 信息源采集通道（RSS/API 清单） | ⬜ 未开始 |
 | T3 | GitHub API 能力与限额 | ⬜ 未开始 |
-| T4 | LLM API 选型与成本 | ✅ 选型已定（2026-09-16，用户决定：GLM 包月订阅；见 T4 小节与 ADR-0008；剩一次实测调用） |
+| T4 | LLM API 选型与成本 | ✅ 完成（2026-09-16 选定 GLM 包月订阅并**实测通过**，ADR-0008） |
 | T5 | 调度与部署方式 | ✅ 决策完成（2026-09-16，ADR-0006：本机 + cron 一次性命令 + 并发可配置） |
 | T6 | 微信推送通道 | ⏸ 延后（用户决定，见 ADR-0002） |
 | T7 | 飞书群机器人通道 | ✅ 调查完成 / ⏸ 实施延后（ADR-0004，见下文） |
 | T8 | 通用 wiki 源分析器可行性 | ⏸ 待用户提供样例 URL 后实测（ADR-0005） |
+| T9 | 非 LLM 翻译工具选型 | 🔶 初步完成（Argos Translate 首选，见 T9 小节；实现期做样本质量实测） |
+| T10 | 非 AI 分析手段（归类/摘要/过滤） | ✅ 设计内解决（RSS 自带摘要 + 规则归类 + 启发式过滤，见 ADR-0009 与 design.md） |
 
 ## T1 公司 wiki 架构调查
 
@@ -112,7 +114,23 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 - **用途限制**：套餐文档注明"仅限官方支持的指定工具与产品环境使用"。本工具为自用脚本，若实测被拒或违反条款，回退方案：平台普通 Key 按量计费调用同系列 GLM 模型（费用很低），或用户改用资源包。
 - **额度耗尽/限流**：按 design.md §7 的 LLM 错误处理（退避重试、条目降级 skipped）。
-- **待完成验证**：拿到 Key 后做一次真实 chat completion 调用（确认 base_url/key/model 三元组），列入实现期验证。
+- **待完成验证**：~~拿到 Key 后做一次真实调用验证~~ ✅ 已完成（2026-09-16）：`https://open.bigmodel.cn/api/coding/paas/v4` + 套餐 Key + 模型 `GLM-5.3-flash` 实测通过。注意：该模型为思考型（响应含 `reasoning_content`），**max_tokens 需给足**（小值会把预算耗在思考上导致正文为空）。
+
+## T9 非 LLM 翻译工具选型（初步）
+
+### 结论
+
+首选 **Argos Translate**（Python 库、开源、本地离线、OpenNMT 内核，`pip install argostranslate` 后装 en→zh 语言包）承担标题与短文本的英译中；LLM 作为质量兜底（长段/关键条目可配置走 LLM）。LibreTranslate 只是 Argos 的服务化封装（Docker 部署），对本项目是多余一层，不采用。
+
+### 关键事实（2026-09-16 快查）
+
+- Argos Translate：纯本地、无调用限制、无外部依赖；en→zh 语言包数百 MB，一次性下载。
+- 质量：对标题/短句可用；长技术段落弱于 LLM/DeepL——所以按文本长度/重要性路由：短文本走 Argos，长文与周报导语可走 LLM（配置项）。
+- 不采用 Google 免费接口（非官方、易失效）与 DeepL 免费层（需注册、有额度）。
+
+### 尾项（实现期）
+
+用真实采集到的标题/简介样本做一次 Argos vs LLM 的质量对比，确定路由阈值（如长度 N 字符以上走 LLM）。
 
 ## ADR
 
@@ -170,9 +188,19 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 - **决策**：翻译/摘要/分类/趋势解读统一调用用户已有的 GLM Coding Plan：套餐 Key + `https://open.bigmodel.cn/api/coding/paas/v4`（OpenAI Chat Completions 兼容）；凭据填 `ai/secret.md` 的 `LLM_BASE_URL/LLM_API_KEY/LLM_MODEL`。
 - **后果**：包月额度内零边际成本，成本关注点变为额度余量（工具限速 + 用量监控）；若套餐对非指定工具调用受限，回退平台按量 Key 调用同系列模型。细节见 tech.md T4。
 
+### ADR-0009: 工具优先，AI（LLM）仅兜底
+
+- **状态**：已接受（2026-09-16，用户原则）
+- **决策**：实现工具本身尽量由 AI 编写；但工具**运行时**尽量少用 LLM——
+  1. 采集与发送一律用现成工具（RSS 解析、HTTP API、webhook），无 LLM；
+  2. 翻译：首选本地 Argos Translate（T9），LLM 仅用于长文/关键内容（可配置路由阈值）；
+  3. 分析：用 RSS 自带摘要 + trafilatura 正文抽取 + 关键词规则归类 + 启发式过滤（T10），趋势统计本就是规则计算；
+  4. LLM 仅保留两处：翻译兜底、周报成文的可选润色（`llm_polish`，默认关闭，纯模板成文）。
+- **后果**：日常运行几乎不消耗 LLM 额度、更快更稳；代价是简介/导语的文字质量上限低于 LLM 全程生成，由 `llm_polish` 开关按需提升。
+
 ## 下一步调查
 
 1. T2：信息源 RSS/API 可用性清单（厂商博客、arXiv、Hacker News、中文源等）→ 产出 `sources.yaml` 初始清单供用户勾选。
 2. T3：GitHub API（releases/activity、限额、是否配 token）。
 3. T8：拿到用户提供的样例 wiki URL 后，实测「通用 wiki 源分析器」可行性（静态/JS 渲染判定、API/RSS/sitemap 探测、子页发现与正文抽取，见 ADR-0005）。
-4. T4 尾项：拿到套餐 Key 后做一次真实调用验证（base_url/key/model 三元组）。
+4. T9 尾项：实现期用真实样本对比 Argos 与 LLM 翻译质量，定路由阈值。
