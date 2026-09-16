@@ -32,6 +32,10 @@ HEAD_SUMMARY_BYTES = 1500    # README 文首提取的摘要上限
 FETCH_INTERVAL = 1.0         # 对 github.com 的请求间隔（ADR-0006 礼貌抓取）
 DEFAULT_QUERY = "topic:artificial-intelligence stars:>500 pushed:>{week}"
 
+# 运行统计（成本项）：token 数来自 GLM 响应的 usage 字段，精确值
+STATS = {"gh_api": 0, "llm_calls": 0, "prompt_tokens": 0,
+         "completion_tokens": 0, "total_tokens": 0}
+
 
 def load_secret():
     kv = {}
@@ -60,6 +64,7 @@ def gh_headers(token, raw=False):
 
 def search_repos(query, per_page, token):
     url = "https://api.github.com/search/repositories"
+    STATS["gh_api"] += 1
     r = requests.get(url, params={"q": query, "sort": "stars", "order": "desc",
                                   "per_page": per_page},
                      headers=gh_headers(token), timeout=30)
@@ -69,6 +74,7 @@ def search_repos(query, per_page, token):
 
 def fetch_readme(full_name, token):
     url = "https://api.github.com/repos/%s/readme" % full_name
+    STATS["gh_api"] += 1
     r = requests.get(url, headers=gh_headers(token, raw=True), timeout=30)
     if r.status_code == 404:
         return ""
@@ -149,7 +155,13 @@ def translate(text, secret):
                                        "Content-Type": "application/json"},
                               json=payload, timeout=120)
             r.raise_for_status()
-            out = r.json()["choices"][0]["message"].get("content", "").strip()
+            body = r.json()
+            out = body["choices"][0]["message"].get("content", "").strip()
+            usage = body.get("usage") or {}
+            STATS["llm_calls"] += 1
+            STATS["prompt_tokens"] += usage.get("prompt_tokens", 0)
+            STATS["completion_tokens"] += usage.get("completion_tokens", 0)
+            STATS["total_tokens"] += usage.get("total_tokens", 0)
             if out:
                 return out, "llm"
         except Exception as exc:
@@ -172,6 +184,9 @@ def init_db():
       title TEXT, url TEXT, summary TEXT, summary_zh TEXT, summary_from TEXT,
       lang TEXT, stars INTEGER, published_at TEXT, collected_at TEXT,
       status TEXT DEFAULT 'new', meta TEXT);
+    CREATE TABLE IF NOT EXISTS runs(
+      id INTEGER PRIMARY KEY, kind TEXT, started_at TEXT, finished_at TEXT,
+      status TEXT, stats TEXT, error TEXT);
     """)
     return conn
 
@@ -200,13 +215,19 @@ def cell(text):
     return (text or "").replace("|", "\\|").replace("\n", " ")
 
 
-def render_md(entries, query, out_path):
+def render_md(entries, query, out_path, stats, elapsed):
+    cost_line = ("LLM %d 次调用，tokens 输入 %s / 输出 %s（合计 %s，GLM 包月订阅内边际费用 ¥0）｜ "
+                 "GitHub API %d 次" % (
+                     stats["llm_calls"], format(stats["prompt_tokens"], ","),
+                     format(stats["completion_tokens"], ","), format(stats["total_tokens"], ","),
+                     stats["gh_api"]))
     lines = [
         "# GitHub AI 热门项目 Top %d" % len(entries), "",
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
         "- 数据来源：GitHub Search API（官方接口，按 star 数降序）",
         "- 查询条件：`%s`" % query,
-        "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布", "",
+        "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布",
+        "- 成本：%s" % cost_line, "",
         "| 排名 | 项目 | Stars | 语言 | 中文简介 |", "|---|---|---|---|---|",
     ]
     for i, e in enumerate(entries, 1):
@@ -225,6 +246,15 @@ def render_md(entries, query, out_path):
         if e["lang"] != "zh-skip":
             lines.append("- 原文简介：%s" % e["summary"].replace("\n", " "))
         lines.append("")
+    lines += ["## 成本与运行统计", "",
+              "| 项目 | 数值 | 来源 |", "|---|---|---|",
+              "| LLM 调用次数 | %d | 计数 |" % stats["llm_calls"],
+              "| 输入 tokens | %s | GLM usage（精确） |" % format(stats["prompt_tokens"], ","),
+              "| 输出 tokens | %s | GLM usage（精确） |" % format(stats["completion_tokens"], ","),
+              "| 合计 tokens | %s | GLM usage（精确） |" % format(stats["total_tokens"], ","),
+              "| 边际费用 | ¥0 | GLM 包月订阅（ADR-0008） |",
+              "| GitHub API 调用 | %d 次（限额 60/时，未认证） | 计数 |" % stats["gh_api"],
+              "| 总耗时 | %.0f 秒 | 计时 |" % elapsed, ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -238,6 +268,7 @@ def main():
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
+    started = time.time()
     print("[1/5] 搜索：%s" % args.query)
     repos = search_repos(args.query, args.per_page, token)
     print("      命中 %d 个项目" % len(repos))
@@ -264,13 +295,21 @@ def main():
     print("[4/5] 存库")
     conn = init_db()
     inserted = store(conn, entries)
+    elapsed = time.time() - started
+    STATS["elapsed_sec"] = round(elapsed)
+    conn.execute("INSERT INTO runs(kind,started_at,finished_at,status,stats) "
+                 "VALUES('github-top10',?,?, 'ok', ?)",
+                 (datetime.fromtimestamp(started).strftime("%Y-%m-%d %H:%M:%S"),
+                  datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                  json.dumps(STATS, ensure_ascii=False)))
+    conn.commit()
     conn.close()
     print("      新增 %d 条（其余为已见去重）" % inserted)
 
     RESULT_DIR.mkdir(exist_ok=True)
     out = RESULT_DIR / ("github-ai-top10-%s.md" % date.today().strftime("%Y-%m-%d"))
     print("[5/5] 生成 %s" % out)
-    render_md(entries, args.query, out)
+    render_md(entries, args.query, out, STATS, elapsed)
 
 
 if __name__ == "__main__":
