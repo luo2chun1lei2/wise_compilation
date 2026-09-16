@@ -18,6 +18,9 @@
    （原料索引：链接+简介）        （git 版本化）                 （通道配置驱动）
 ```
 
+> 2026-09-16 更新：Stage C 各外部通道（飞书、微信、外部发布类 wiki）**全部延后**——首期只实现 Stage A/B 与 MinDoc 发布，分发层保留 Channel 抽象（ADR-0004）。
+> Stage A 同时纳入「通用 wiki 源分析器」：配置表中放入外部 wiki 的 URL，程序自动分析其内容/子页作为资料来源（ADR-0005，采集方向，待样例 URL 实测）。
+
 ### 中间层的职责划分（关键设计）
 
 「内部 wiki 文件」由**两个表示**构成，职责不同、内容一致：
@@ -47,6 +50,7 @@ tools/
       rss.py               # RSS/Atom 采集（feedparser，支持 etag/last-modified 增量）
       github.py            # GitHub API（releases / commits / activity；T3 细化）
       web.py               # 定向抓取兜底（trafilatura 抽正文，仅无 RSS 源）
+      wiki_src.py          # 通用 wiki 源分析器（URL 配置驱动：RSS→wiki API→sitemap→有界爬取，ADR-0005）
     pipeline/
       dedupe.py            # URL 规范化 + 内容 hash + 已见判重
       llm.py               # LLM 客户端：翻译+摘要+分类（一次调用，schema 校验输出）
@@ -100,6 +104,8 @@ AI 资讯汇编
 
 ## 5. 分发层设计
 
+> 2026-09-16 更新：飞书与微信同为后续任务（ADR-0002/0004），**首期不实现任何外部通道**，仅做 MinDoc 发布；本节内容作为后续通道实施依据保留。
+
 ### 通道抽象
 
 ```python
@@ -133,7 +139,19 @@ class Channel(ABC):
 | 汇编+发布+分发 | 每周一 08:00 | `wise run weekly` | compile → publish(wiki) → deliver 顺序执行 |
 | 手动特刊 | 按需 | `wise compile --topic news --since 2026-09-14` | 特殊时间点/重大事件手动触发 |
 
-- 所有子命令**幂等**（去重靠 url_norm + content_hash；重发布靠 doc_identify + cover=yes），调度载体用 cron / systemd timer / 常驻 APScheduler 均可，待 T5 定（不影响本设计）。
+- 所有子命令**幂等**（去重靠 url_norm + content_hash；重发布靠 doc_identify + cover=yes）。
+- **部署决策（ADR-0006，2026-09-16）**：本机部署，cron（或 systemd timer）触发一次性命令，进程跑完即退出，无常驻服务。
+
+### 负载与并发控制（ADR-0006）
+
+| 项 | 默认值 | 说明 |
+|---|---|---|
+| `concurrency.fetch` | 2 | 并发抓取的源数量上限，可配置 |
+| 每域策略 | 串行 + ≥1s 间隔 | 礼貌抓取，避免对目标站点压力 |
+| `concurrency.llm_rpm` | 10 | LLM 每分钟调用上限，防突发用量 |
+| 单轮时长预算 | 30 分钟 | 超时中止并在 runs 报告标注 |
+
+- 存储 SQLite、无常驻进程、空闲期零负载；运行期为网络 IO 为主，内存占用预期 < 100MB。
 
 ## 7. 错误处理矩阵
 
@@ -165,8 +183,8 @@ class Channel(ABC):
 ## 10. 未决问题（实现前需确认）
 
 1. MinDoc 目标项目：✅ 已创建「AI 资讯汇编」（identify=`ai-digest`，2026-09-16 用户确认）。待定：工具登录账号方案——推荐建专用账号（如 `ai-digest-bot`）并在项目中以「编辑者」角色加入；或直接用创建者个人账号。凭据届时由用户写入 `data/.env`（不经对话传递）。
-2. 飞书：目标群是否已可添加自定义机器人？提供 webhook + secret 的时间点。
-3. 外部 wiki：具体是哪个系统/地址？
+2. 飞书：✅ 延后（2026-09-16）——与微信同为后续任务，调查结论保留（tech.md T7），届时按 ADR-0004 实施。
+3. 外部 wiki：重新定义为「URL 配置驱动的通用源分析器」（ADR-0005，采集方向）——待用户提供样例 URL 后实测可行性（T8）。
 4. LLM API：可用厂商与 key（T4 调查时一并定）。
-5. 部署机器与调度载体（T5）。
-6. 初始信息源清单（T2 产出建议清单后由你勾选确认）。
+5. 部署机器：✅ 本机（2026-09-16，ADR-0006）——低负载设计，并发量可配置（见 §6）。
+6. 初始信息源清单：待 T2 产出建议清单后由用户勾选确认。
