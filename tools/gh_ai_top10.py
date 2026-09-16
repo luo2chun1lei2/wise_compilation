@@ -217,10 +217,10 @@ def cell(text):
 
 def render_md(entries, query, out_path, stats, elapsed):
     cost_line = ("LLM %d 次调用，tokens 输入 %s / 输出 %s（合计 %s，GLM 包月订阅内边际费用 ¥0）｜ "
-                 "GitHub API %d 次" % (
+                 "GitHub API %d 次 ｜ 耗时 %.0f 秒（获取→生成）" % (
                      stats["llm_calls"], format(stats["prompt_tokens"], ","),
                      format(stats["completion_tokens"], ","), format(stats["total_tokens"], ","),
-                     stats["gh_api"]))
+                     stats["gh_api"], elapsed))
     lines = [
         "# GitHub AI 热门项目 Top %d" % len(entries), "",
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -254,7 +254,7 @@ def render_md(entries, query, out_path, stats, elapsed):
               "| 合计 tokens | %s | GLM usage（精确） |" % format(stats["total_tokens"], ","),
               "| 边际费用 | ¥0 | GLM 包月订阅（ADR-0008） |",
               "| GitHub API 调用 | %d 次（限额 60/时，未认证） | 计数 |" % stats["gh_api"],
-              "| 总耗时 | %.0f 秒 | 计时 |" % elapsed, ""]
+              "| 总耗时（获取→生成） | %.0f 秒 | 计时，统计系统占用时间 |" % elapsed, ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
