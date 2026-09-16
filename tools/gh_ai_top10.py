@@ -216,18 +216,13 @@ def cell(text):
 
 
 def render_md(entries, query, out_path, stats, elapsed):
-    cost_line = ("LLM %d 次调用，tokens 输入 %s / 输出 %s（合计 %s，GLM 包月订阅内边际费用 ¥0）｜ "
-                 "GitHub API %d 次 ｜ 耗时 %.0f 秒（获取→生成）" % (
-                     stats["llm_calls"], format(stats["prompt_tokens"], ","),
-                     format(stats["completion_tokens"], ","), format(stats["total_tokens"], ","),
-                     stats["gh_api"], elapsed))
     lines = [
         "# GitHub AI 热门项目 Top %d" % len(entries), "",
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
         "- 数据来源：GitHub Search API（官方接口，按 star 数降序）",
         "- 查询条件：`%s`" % query,
         "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布",
-        "- 成本：%s" % cost_line, "",
+        "- 成本与耗时：见文末「成本与运行统计」", "",
         "| 排名 | 项目 | Stars | 语言 | 中文简介 |", "|---|---|---|---|---|",
     ]
     for i, e in enumerate(entries, 1):
