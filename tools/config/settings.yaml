@@ -1,0 +1,12 @@
+# 运行参数（ADR-0006 低负载；ADR-0010 翻译上限；ADR-0009 工具优先）
+
+concurrency:
+  fetch: 2          # 并发抓取的源数量上限
+  llm_rpm: 10       # LLM 每分钟调用上限
+  run_budget_min: 30  # 单轮运行时长预算（分钟），超时中止并在 runs 报告标注
+
+translate:
+  max_bytes: 5000   # 单条待译文本上限（UTF-8 字节），超限不翻译（ADR-0010）
+  oversize: keep_original  # keep_original=保留原文 | link_only=只留标题与链接
+
+llm_polish: false   # 周报导语/趋势解读的 LLM 润色开关（默认关闭，纯模板成文）

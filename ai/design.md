@@ -108,10 +108,11 @@ sources:
     topic: tech                # 归入的专题（topics.yaml 定义）
     enabled: true
 
-  - name: pytorch
-    type: github               # 地址为 repo；watch 指定关注项
-    url: https://github.com/pytorch/pytorch
-    watch: [releases]
+  - name: github-ai-hot
+    type: github               # mode: search=组合查询取热门（ADR-0012）| repo=跟踪指定仓库
+    mode: search
+    query: "topic:artificial-intelligence stars:>500 pushed:>now-7d"
+    per_page: 10
     topic: tech
 
   - name: some-ai-wiki

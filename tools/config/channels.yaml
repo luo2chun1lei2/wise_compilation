@@ -1,0 +1,15 @@
+# 分发目标清单（ADR-0007；首期仅内部 wiki，ADR-0004 外部通道延后）
+
+channels:
+  - name: internal-wiki
+    type: mindoc               # 凭据见 ai/secret.md（WIKI_*）
+    target: ai-digest          # MinDoc 项目 identify
+    mode: full                 # full=全文写入 | card=摘要卡片+链接
+    enabled: true
+
+  # 后续按同样格式追加（均为延后状态）：
+  # - name: team-feishu
+  #   type: feishu             # webhook 地址；secret 在 ai/secret.md
+  #   target: https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+  #   mode: card
+  #   enabled: false

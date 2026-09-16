@@ -1,0 +1,12 @@
+# 专题定义（proposal.md 需求：新闻、技术汇总）
+# keywords 供 classify.py 规则归类使用（ADR-0009，无 LLM）
+
+topics:
+  - key: news
+    name: AI 新闻
+    cadence: weekly            # 每周汇编一期
+    keywords: [发布, release, 融资, 开源, 上线, 发布会, partnership, launch, funding]
+  - key: tech
+    name: 技术汇总
+    cadence: weekly
+    keywords: [模型, 训练, 推理, 微调, agent, 智能体, LLM, benchmark, 论文, paper, RLHF, RAG, MCP]
