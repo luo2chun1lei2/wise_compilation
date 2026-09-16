@@ -17,7 +17,7 @@
 |---|---|---|
 | T1 | 公司 wiki（MinDoc）架构与写入 API | ✅ 完成（2026-09-16，见下文） |
 | T2 | 信息源采集通道（RSS/API 清单） | ⬜ 未开始 |
-| T3 | GitHub API 能力与限额 | ⬜ 未开始 |
+| T3 | GitHub API 能力与限额 | ✅ 完成（2026-09-16，官方 Search API + 实测三策略对比，ADR-0012） |
 | T4 | LLM API 选型与成本 | ✅ 完成（2026-09-16 选定 GLM 包月订阅并**实测通过**，ADR-0008） |
 | T5 | 调度与部署方式 | ✅ 决策完成（2026-09-16，ADR-0006：本机 + cron 一次性命令 + 并发可配置） |
 | T6 | 微信推送通道 | ⏸ 延后（用户决定，见 ADR-0002） |
@@ -132,7 +132,34 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 ~~用真实采集到的标题/简介样本做 Argos vs LLM 质量对比~~ 已取消——2026-09-16 用户改定翻译方案：LLM 优先 + 字节上限（ADR-0010），本节调查留档备用。
 
+## T3 GitHub 信息源调查
+
+### 结论
+
+GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取，脆弱不采用）。采用**官方 Search API**，用「topic + star 阈值 + 时间窗」组合查询表达"AI 最热"；README 走 raw 接口获取。已端到端试跑验证（见 verify.md V1）。
+
+### 关键事实（2026-09-16 实测，未认证）
+
+- 搜索：`GET /search/repositories?q=<query>&sort=stars&order=desc&per_page=10`
+- 三种"AI 热门"查询策略对比：
+
+| 策略 | 查询 | 结果评价 |
+|---|---|---|
+| A 新项目 | `topic:artificial-intelligence created:>两周前` | 真实新项目但 star 低（最高 44★），偏"新"不偏"热" |
+| B 关键词 | `ai created:>一周前` | 噪音大（玩笑仓库也能 1000+★），不可用 |
+| C 热门+活跃 | `topic:artificial-intelligence stars:>500 pushed:>一周前` | ✅ **采用**：头部项目且本周活跃（AutoGPT 187k、LLMs-from-scratch 105k 等） |
+
+- README：`GET /repos/{owner}/{repo}/readme` + `Accept: application/vnd.github.raw` → 原文 markdown（404 = 无 README）。
+- 限额：未认证 core 60 次/时、search 10 次/分；配 token 后 core 5000 次/时、search 30 次/分。限额头 `X-RateLimit-*` 可读取。请求间隔 ≥1s（ADR-0006）。
+- 试跑脚本：`tools/gh_ai_top10.py`（数据流五步完整实现，可复用为 github 采集适配器的基础）。
+
 ## ADR
+
+### ADR-0012: GitHub 源采用官方 Search API（策略 C 组合查询），不爬 Trending 页
+
+- **状态**：已接受（2026-09-16）
+- **决策**：`sources.yaml` 的 `github` 类型用 Search API（topic + stars 阈值 + pushed 时间窗，参数可配）+ README raw 接口；不爬取 trending HTML。
+- **后果**：稳定、官方支持、限额可预期；"热"的语义由查询参数表达，可按需调整（如仅看新项目用策略 A）。
 
 ### ADR-0001: wiki 发布采用「表单登录 + cookie 会话 + MinDoc Web API」
 
@@ -221,5 +248,4 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 ## 下一步调查
 
 1. T2：信息源 RSS/API 可用性清单（厂商博客、arXiv、Hacker News、中文源等）→ 产出 `sources.yaml` 初始清单供用户勾选。
-2. T3：GitHub API（releases/activity、限额、是否配 token）。
-3. T8：拿到用户提供的样例 wiki URL 后，实测「通用 wiki 源分析器」可行性（静态/JS 渲染判定、API/RSS/sitemap 探测、子页发现与正文抽取，见 ADR-0005）。
+2. T8：拿到用户提供的样例 wiki URL 后，实测「通用 wiki 源分析器」可行性（静态/JS 渲染判定、API/RSS/sitemap 探测、子页发现与正文抽取，见 ADR-0005）。
