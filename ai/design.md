@@ -74,6 +74,54 @@ material/                  # 原料索引（AGENTS.md 布局）
 result/                    # 汇编成品 = 事实源（入 git）
 ```
 
+### 配置文件设计（双配置驱动，ADR-0007）
+
+**采集与分发均为多来源/多目标，全部由两个配置文件驱动**，每项 = `类型 + 地址（或 ID）`。
+
+`config/sources.yaml`（采集源）：
+
+```yaml
+sources:
+  - name: openai-news          # 唯一别名
+    type: rss                  # 类型：rss | github | wiki | web
+    url: https://openai.com/news/rss.xml
+    topic: tech                # 归入的专题（topics.yaml 定义）
+    enabled: true
+
+  - name: pytorch
+    type: github               # 地址为 repo；watch 指定关注项
+    url: https://github.com/pytorch/pytorch
+    watch: [releases]
+    topic: tech
+
+  - name: some-ai-wiki
+    type: wiki                 # 通用 wiki 源分析器（ADR-0005）
+    url: https://example-wiki/
+    depth: 1                   # 子页爬取深度上限
+    topic: tech
+```
+
+`config/channels.yaml`（分发目标）：
+
+```yaml
+channels:
+  - name: internal-wiki
+    type: mindoc               # 类型：mindoc | feishu | wecom | serverchan | …
+    target: ai-digest          # 地址或 ID：MinDoc 项目 identify
+    mode: full                 # full=全文写入 | card=摘要卡片+链接
+    enabled: true
+  # 延后的通道后续按同样格式追加，例如飞书：
+  # - name: team-feishu
+  #   type: feishu
+  #   target: https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+  #   mode: card
+```
+
+**类型扩展规则**：每个 `type` 对应代码里一个适配器（采集适配器 / 通道适配器）。
+
+1. 配置中出现的类型无适配器时，启动校验报错并列出已支持类型；运行时该项标记 `skipped(unsupported type)`，**不影响其他源/目标**。
+2. 需要新类型时走项目流程：AI 先调查该类型的获取/发送方式（记入 tech.md），**优先用现成工具/库实现**，没有再自制；实现后在 task.md 排任务、verify.md 记验证。
+
 ## 3. 数据模型（SQLite `data/wise.db`）
 
 | 表 | 关键字段 | 用途 |
@@ -187,4 +235,4 @@ class Channel(ABC):
 3. 外部 wiki：重新定义为「URL 配置驱动的通用源分析器」（ADR-0005，采集方向）——待用户提供样例 URL 后实测可行性（T8）。
 4. LLM API：可用厂商与 key（T4 调查时一并定）。
 5. 部署机器：✅ 本机（2026-09-16，ADR-0006）——低负载设计，并发量可配置（见 §6）。
-6. 初始信息源清单：待 T2 产出建议清单后由用户勾选确认。
+6. 初始信息源清单：待 T2 产出建议清单，与用户后续给出的源示例合并勾选确认；分发目标初始仅 `internal-wiki`，其余等用户提供示例后追加。
