@@ -186,6 +186,14 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 | **`www.zhihu.com/api/v4/columns/{slug}/articles`** | ✅ **无需登录**（用户所需的"文章流"）；每篇自带 标题/excerpt/链接/**点赞数**/评论数/创建时间；`sort_by=created` 按最新 |
 | `www.zhihu.com/api/v4/columns/{slug}` | ✅ 专栏元信息（名称/简介/文章数）；**meta 的 updated 字段过期不可信** |
 | 话题 feeds API / 机构号动态接口 | ❌ 需登录态或 404。补充探测（2026-09-16 晚）：`/topics/{id}/feeds/essence` 返回 403"请求参数异常"（端点真实存在，需登录 cookie + 可能需 x-zse-96 签名）；`/feeds/top`、`/feeds/timeline`、api.zhihu.com 域名下各话题端点均 404。"我关注的专栏/话题"提取接口（followed_columns/followees）匿名同样 404/401 → **提取用户关注列表必须 cookie** |
+
+#### 带 cookie 实测（2026-09-16 晚，用户提供）
+
+- cookie 规范化注意：从 DevTools Cookies 表格复制的是 `key "value"` 带引号格式，需重建为标准 `key=value; ...` 串（脚本已内置解析）。
+- `/api/v4/me`：✅ 通（登录态有效，可拿 url_token）。
+- 「关注的话题」页 HTML：200 但是纯 SPA 壳，无服务端数据；followed_topics 接口 404。
+- **话题精华流：cookie 仍 403（code 10003）→ 必须逆向 x-zse-96 签名**。判定：脆弱（知乎改版即失效）+ 主账号跑签名请求有风控/封号风险，**不采用，话题路线关闭**。
+- 结论：知乎内容获取以**专栏订阅（ADR-0015）为主**；新专栏由用户提供 `zhuanlan.zhihu.com/{slug}` 链接加入，无需任何凭据。
 | 网页版 `www.zhihu.com/hot`、`zhuanlan.zhihu.com` | ❌ 403 反爬 |
 
 - AI 专栏 slug 探测（2026-09-16）：`jiqizhixin`（机器之心，活跃）、`QbitAI`（量子位，活跃）、`paperweekly`（PaperWeekly，2023-11 后停更）；专栏 slug 即 `zhuanlan.zhihu.com/{slug}`，用户可自行追加。
