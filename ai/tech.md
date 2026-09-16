@@ -185,7 +185,7 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 | `api.zhihu.com/topstory/hot-list` | ✅ 无需登录；limit=50 实际最多返回 **30 条**；字段齐全（AI 占比低，热榜源默认停用） |
 | **`www.zhihu.com/api/v4/columns/{slug}/articles`** | ✅ **无需登录**（用户所需的"文章流"）；每篇自带 标题/excerpt/链接/**点赞数**/评论数/创建时间；`sort_by=created` 按最新 |
 | `www.zhihu.com/api/v4/columns/{slug}` | ✅ 专栏元信息（名称/简介/文章数）；**meta 的 updated 字段过期不可信** |
-| 话题 feeds API / 机构号动态接口 | ❌ 需登录态或 404 |
+| 话题 feeds API / 机构号动态接口 | ❌ 需登录态或 404。补充探测（2026-09-16 晚）：`/topics/{id}/feeds/essence` 返回 403"请求参数异常"（端点真实存在，需登录 cookie + 可能需 x-zse-96 签名）；`/feeds/top`、`/feeds/timeline`、api.zhihu.com 域名下各话题端点均 404。"我关注的专栏/话题"提取接口（followed_columns/followees）匿名同样 404/401 → **提取用户关注列表必须 cookie** |
 | 网页版 `www.zhihu.com/hot`、`zhuanlan.zhihu.com` | ❌ 403 反爬 |
 
 - AI 专栏 slug 探测（2026-09-16）：`jiqizhixin`（机器之心，活跃）、`QbitAI`（量子位，活跃）、`paperweekly`（PaperWeekly，2023-11 后停更）；专栏 slug 即 `zhuanlan.zhihu.com/{slug}`，用户可自行追加。
