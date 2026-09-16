@@ -35,10 +35,25 @@
 
 ### 数据流
 
-1. **采集**（每日；逐条处理管道：**获取材料 → 获取摘要 → 翻译判定 → 存库**，ADR-0011）：按 `sources.yaml` 逐源拉取 → 规范化 + 去重（已见条目跳过）→ **摘要级联提取**（纯工具：feed 自带摘要 → 文首 TL;DR/Abstract 段 → 文末 Summary/Conclusion 节 → 正文前 N 字节截断；中间正文不送 LLM）→ 归类（`topics.yaml` 关键词规则 + 重要性启发式）→ 翻译判定（中文源跳过；外文按 ADR-0010：简介 ≤ `translate.max_bytes` 走 LLM、超限 `keep_original/link_only`、标题始终译）→ 存 SQLite（含 `summary_from` 标记来源），原料索引追加至 `material/`（只存链接+摘要，符合需求约束）。
-2. **汇编**（每周/手动；纯工具，零 LLM）：按专题/周期查询已入库条目 → 按专题模板渲染 markdown（新闻周报 / 技术汇总）→ 追加「趋势观察」（规则统计表格；LLM 解读仅当 `llm_polish: true` 时生成，默认关闭）→ 写 `result/`。
-3. **发布 wiki**：登录 MinDoc（30 天 remember cookie，失效自动重登）→ 按期次创建/更新文档（`cover=yes` 覆盖）→ 记录 `publish_log`。
-4. **分发**：各通道从 `result/` 读取本期成品 → 按「卡片模式（摘要+wiki 链接）」或「全文模式（分片）」推送 → 记录 `publish_log`。
+逐条处理管道（ADR-0011）：**获取材料 → 获取摘要 → 翻译判定 → 存库**，在每日采集期完成；汇编期纯工具。各步骤明细：
+
+| 阶段 | 步骤 | 干什么 | 如何实现 | 工具/LLM | 备注 |
+|---|---|---|---|---|---|
+| 采集（每日，逐条） | 1. 拉取源 | 按 `sources.yaml` 逐源拉取 RSS/JSON/页面 | feedparser / requests（带 etag/last-modified 增量） | 工具 | 单源失败隔离；连续 5 次失败标记「源失效」告警 |
+| 采集 | 2. 规范化+去重 | URL 规范化、内容 hash 判重，已见条目跳过 | url_norm + content_hash 查 SQLite | 工具 | 幂等保证，重跑不产生重复 |
+| 采集 | 3. 摘要提取 | 级联取摘要：feed 自带 → 文首 TL;DR/Abstract 段 → 文末 Summary/Conclusion 节 → 正文前 N 字节截断 | trafilatura 正文抽取 + 标记/标题正则识别 | 工具 | 记 `summary_from` 来源；中间正文不送 LLM（ADR-0011） |
+| 采集 | 4. 归类与过滤 | 归入专题、重要性过滤 | `topics.yaml` 关键词规则 + 启发式（时间/star 数/关键词权重） | 工具 | 无匹配条目归「其他」专题 |
+| 采集 | 5. 翻译判定与翻译 | 中文源跳过；外文标题必译、摘要 ≤ `translate.max_bytes` 才译 | GLM API（包月，ADR-0008/0010） | **LLM** | 超限按 `oversize`（keep_original/link_only）处理；限速 `llm_rpm` |
+| 采集 | 6. 存库 | 条目入 SQLite，索引追加至 `material/` | sqlite3 | 工具 | 本地只存链接+摘要（需求约束） |
+| 汇编（每周/手动） | 7. 查询周期条目 | 按专题+时间窗取条目 | SQL 查询 items | 工具 | 无素材时产出占位文档 |
+| 汇编 | 8. 模板成文 | 渲染「新闻周报/技术汇总」markdown | Jinja2 专题模板 | 工具 | 纯模板成文（ADR-0009） |
+| 汇编 | 9. 趋势统计 | 本期 vs 上期：关键词频次、条目数、star 增速 | 规则统计 + 表格 | 工具 | — |
+| 汇编 | 10. 可选润色 | 生成导语/趋势解读 | GLM API | LLM（可选） | `llm_polish` 默认关闭 |
+| 汇编 | 11. 写 result/ | 成品落盘并提交 git | 文件写入 + git | 工具 | 事实源（§1） |
+| 发布（每次汇编后） | 12. 登录 MinDoc | 表单登录、维护会话 | requests cookie jar；remember cookie 30 天 | 工具 | 失效自动重登（tech.md T1） |
+| 发布 | 13. 同步 wiki | 按期次创建/更新文档 | MinDoc Web API（create + content） | 工具 | `doc_identify` 稳定；冲突 `cover=yes` 覆盖 |
+| 发布 | 14. 记录发布日志 | 写 `publish_log` | sqlite3 | 工具 | 失败重试 ≤2 次后告警跳过，成品不丢 |
+| 分发 | 15. 外部分发 | 卡片/全文推送到飞书等通道 | 通道 webhook（ADR-0004，已调查） | 工具 | 首期延后，仅保留 Channel 抽象 |
 
 ## 2. 模块与目录设计
 
