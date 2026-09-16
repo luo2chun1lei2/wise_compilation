@@ -23,6 +23,7 @@
 | T6 | 微信推送通道 | ⏸ 延后（用户决定，见 ADR-0002） |
 | T7 | 飞书群机器人通道 | ✅ 调查完成 / ⏸ 实施延后（ADR-0004，见下文） |
 | T8 | 通用 wiki 源分析器可行性 | ⏸ 待用户提供样例 URL 后实测（ADR-0005） |
+| T11 | GitHub star 增速查询 | ✅ 调查完成（2026-09-16，见 T11 小节：官方 API 无此能力，采用自记录基线） |
 | T9 | 非 LLM 翻译工具选型 | ✅ 关闭（2026-09-16 决策改为 **LLM + 字节上限路由**，ADR-0010；Argos 调查留档备用） |
 | T10 | 非 AI 分析手段（归类/摘要/过滤） | ✅ 设计内解决（摘要级联提取：feed 自带/文首 TL;DR/文末总结/截断 + 规则归类 + 启发式过滤，ADR-0011） |
 
@@ -152,6 +153,23 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 - README：`GET /repos/{owner}/{repo}/readme` + `Accept: application/vnd.github.raw` → 原文 markdown（404 = 无 README）。
 - 限额：未认证 core 60 次/时、search 10 次/分；配 token 后 core 5000 次/时、search 30 次/分。限额头 `X-RateLimit-*` 可读取。请求间隔 ≥1s（ADR-0006）。
 - 试跑脚本：`tools/gh_ai_top10.py`（数据流五步完整实现，可复用为 github 采集适配器的基础）。
+
+## T11 GitHub star 增速查询（2026-09-16）
+
+### 结论
+
+官方 Search API **不能**按 star 增速/时间窗增量查询（仅支持当前 star 数、created/pushed 过滤）。可行途径与实测：
+
+| 途径 | 实测/核实结果 | 评价 |
+|---|---|---|
+| Stargazers API（`star+json` 媒体类型带 `starred_at`） | **必须认证**（未带 token 实测 401）；分页上限 400 页×100=**4 万条**，且只能从最早的开始翻 | 可精确算增速，但仅适用 <40k★ 的仓库；二分页每仓库约 9–10 次请求；需配 `GITHUB_TOKEN` |
+| 第三方 OSS Insight（api.ossinsight.io） | 趋势排行接口实测**已失效**（其数据质量自 2026-03-01 起不可用） | 不可依赖 |
+| GitHub Trending 页面 | 本质是周/月 star 增速排名，但纯 HTML 无官方 API | 爬取脆弱，ADR-0012 已排除 |
+| **自记录基线** | 每日采集时已把 `items.stars` 入库；新增每日快照表后，任意时间窗增速 = SQL 差值 | ✅ **采用**：零额外请求、零第三方依赖；缺点是从开始记录日起有效（30 天后才有完整月增速） |
+
+### 决策
+
+主方案：`star_history(url, date, stars)` 每日快照表，汇编时按窗口算 delta（如"近 30 天 +1000★"过滤）；对需立即知道历史增速的新仓库，可选 Stargazers API 方案（需 token、<40k★）。
 
 ## ADR
 
