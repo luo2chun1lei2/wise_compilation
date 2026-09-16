@@ -48,3 +48,4 @@
 | 20 | 09-16 约17:50 | 结果文档头部与文末成本数据重复：头部仅留指引，数据合并到「成本与运行统计」 | 文档去重 | commit c2ffee5 |
 | 21 | 09-16 约18:10 | 头部指引行也不需要，成本信息只出现在文末统计表 | 文档简洁 | commit 8ab98f6 |
 | 22 | 09-16 约18:30 | 关注四个 GitHub topic（codex / Artificial Intelligence / Agent Harness / ai-agents）并试验 | 多源配置验证 | sources.yaml 四源 + verify.md V2 |
+| 23 | 09-16 约18:50 | 结果文件按日期文件夹归档（如 result/2026-09-16/），文件名不再带日期 | 文件多了需要组织 | design §2 + 本次提交 |

@@ -332,7 +332,9 @@ def main():
 
     RESULT_DIR.mkdir(exist_ok=True)
     stem = label if label else "github-ai-top10"
-    out = RESULT_DIR / ("%s-%s.md" % (stem, date.today().strftime("%Y-%m-%d")))
+    day_dir = RESULT_DIR / date.today().strftime("%Y-%m-%d")   # 按日期归档（用户要求 #23）
+    day_dir.mkdir(parents=True, exist_ok=True)
+    out = day_dir / ("%s.md" % stem)
     print("[5/5] 生成 %s" % out)
     render_md(entries, args.query, out, STATS, elapsed, label)
 

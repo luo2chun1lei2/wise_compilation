@@ -91,7 +91,7 @@ tools/
   requirements.txt
 data/                      # 运行数据（不入 git）：wise.db、cookies.json、日志
 material/                  # 原料索引（AGENTS.md 布局）
-result/                    # 汇编成品 = 事实源（入 git）
+result/                    # 汇编成品 = 事实源（入 git；按日期子目录归档，如 result/2026-09-16/）
 ```
 
 ### 配置文件设计（双配置驱动，ADR-0007）
