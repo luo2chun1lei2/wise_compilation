@@ -20,7 +20,7 @@
 
 > 2026-09-16 更新：Stage C 各外部通道（飞书、微信、外部发布类 wiki）**全部延后**——首期只实现 Stage A/B 与 MinDoc 发布，分发层保留 Channel 抽象（ADR-0004）。
 > Stage A 同时纳入「通用 wiki 源分析器」：配置表中放入外部 wiki 的 URL，程序自动分析其内容/子页作为资料来源（ADR-0005，采集方向，待样例 URL 实测）。
-> 流水线遵循「**工具优先，LLM 仅兜底**」（ADR-0009）：图中"LLM翻译+摘要+分类"更新为 Argos 本地翻译 + 关键词规则归类 + 模板成文，LLM 只做翻译兜底与可选润色。
+> 流水线遵循「**工具优先，LLM 仅兜底**」（ADR-0009）：图中"LLM翻译+摘要+分类"更新为关键词规则归类 + 模板成文；翻译用 LLM + 字节上限路由（默认 5000 bytes，超限保原文/仅链接，ADR-0010）。
 
 ### 中间层的职责划分（关键设计）
 
@@ -36,7 +36,7 @@
 ### 数据流
 
 1. **采集**（每日）：按 `sources.yaml` 逐源拉取 → 规范化条目（标题/链接/日期/原文摘要）→ 去重后入 SQLite，原料索引追加至 `material/`（只存链接+简介，符合需求约束）。
-2. **汇编**（每周/手动；工具优先，ADR-0009）：取周期内新条目 → 翻译（Argos 本地库；长文/关键条目按长度阈值路由 LLM，T9）→ 归类与过滤（`topics.yaml` 关键词规则 + 重要性启发式，无 LLM）→ 简介（RSS 自带摘要 / trafilatura 正文抽取，工具生成）→ 按专题模板渲染 markdown（**纯模板成文**）→ 追加「趋势观察」（规则统计表格；LLM 解读仅当 `llm_polish: true` 时生成，默认关闭）→ 写 `result/`。
+2. **汇编**（每周/手动；工具优先，ADR-0009）：取周期内新条目 → 翻译（**LLM + 字节上限**：简介/摘录 ≤ `translate.max_bytes`（默认 5000B）才译，超限按 `translate.oversize`（keep_original/link_only）处理，标题始终翻译，ADR-0010）→ 归类与过滤（`topics.yaml` 关键词规则 + 重要性启发式，无 LLM）→ 简介（RSS 自带摘要 / trafilatura 正文抽取，工具生成）→ 按专题模板渲染 markdown（**纯模板成文**）→ 追加「趋势观察」（规则统计表格；LLM 解读仅当 `llm_polish: true` 时生成，默认关闭）→ 写 `result/`。
 3. **发布 wiki**：登录 MinDoc（30 天 remember cookie，失效自动重登）→ 按期次创建/更新文档（`cover=yes` 覆盖）→ 记录 `publish_log`。
 4. **分发**：各通道从 `result/` 读取本期成品 → 按「卡片模式（摘要+wiki 链接）」或「全文模式（分片）」推送 → 记录 `publish_log`。
 
@@ -55,7 +55,7 @@ tools/
     pipeline/
       dedupe.py            # URL 规范化 + 内容 hash + 已见判重
       classify.py          # 专题归类 + 重要性过滤（关键词规则/启发式，无 LLM）
-      translate.py         # 英译中：Argos Translate 本地库优先，按长度阈值路由 LLM（T9/ADR-0009）
+      translate.py         # 英译中：LLM + 字节上限路由（max_bytes 默认 5000B；超限 keep_original/link_only，ADR-0010）
       digest.py            # 专题模板渲染（新闻周报 / 技术汇总，纯模板成文）
       trend.py             # 趋势统计（本期 vs 上期频次、条目数、star 增速，规则计算）
       llm.py               # LLM 客户端：仅兜底（翻译路由 / llm_polish 润色），默认低频使用
@@ -71,6 +71,7 @@ tools/
     sources.yaml           # 信息源清单（T2 产出初始清单后由用户确认）
     topics.yaml            # 专题定义与模板变量
     channels.yaml          # 分发通道开关与模式（card/full）
+    settings.yaml          # 运行参数：concurrency.fetch/llm_rpm、translate.max_bytes/oversize、llm_polish 等
   requirements.txt
 data/                      # 运行数据（不入 git）：wise.db、cookies.json、日志
 material/                  # 原料索引（AGENTS.md 布局）
