@@ -21,6 +21,7 @@
 | T4 | LLM API 选型与成本 | ⬜ 未开始 |
 | T5 | 调度与部署方式 | ⬜ 未开始 |
 | T6 | 微信推送通道 | ⏸ 延后（用户决定，见 ADR-0002） |
+| T7 | 飞书群机器人通道 | ✅ 完成（2026-09-16，见下文） |
 
 ## T1 公司 wiki 架构调查
 
@@ -72,6 +73,25 @@ POST /api/{key}/content/{id}    (markdown=..., cover=yes)
 - **版本冲突**（6005 confirm_override_doc）：digest 场景直接传 `cover=yes` 覆盖。
 - **凭据管理**：账号密码存本地配置（不入 git），泄漏影响面为该 wiki 账号。
 
+## T7 飞书群机器人通道调查
+
+### 结论
+
+飞书「群自定义机器人 webhook」满足分发通道需求：无需管理员审核、纯 HTTP POST JSON、支持富文本（含链接）与交互卡片。作为首个外部分发通道技术上成立。
+
+### 关键事实（来源：飞书开放平台官方文档，2026-09-16）
+
+- Webhook：`POST https://open.feishu.cn/open-apis/bot/v2/hook/xxx`，`Content-Type: application/json`；群设置内添加，仅限本群使用。
+- 消息类型：`text`、`post`（富文本，支持 `a` 链接/`at`）、`interactive` 卡片（仅跳转 URL，无回调交互）、`image`、`share_chat`。
+- 签名校验（安全设置：关键词、IP 白名单、签名）：`sign = base64(HmacSHA256(key = timestamp + "\n" + secret, message = ""))`；`timestamp`（秒）与 `sign` 随请求体提交，时间戳有效期 1 小时。
+- 限制：单租户单机器人 100 条/分钟、5 条/秒；请求体 ≤20KB；建议避开整点/半点发送（11232 限流）。
+- 错误码：19021 签名失败、19022 IP 白名单失败、19024 关键词不匹配。
+
+### 风险与错误处理
+
+- 单条 20KB 上限 → 全文推送需按章节分片（设计见 design.md §5）。
+- webhook 地址即凭据 → 存 `data/.env` 不入 git；签名 secret 同理。
+
 ## ADR
 
 ### ADR-0001: wiki 发布采用「表单登录 + cookie 会话 + MinDoc Web API」
@@ -87,9 +107,24 @@ POST /api/{key}/content/{id}    (markdown=..., cover=yes)
 - **决策**：发送方向先实现 wiki；微信作为后续任务，届时在企业微信群机器人 webhook 与 Server酱 等方案中选型调查。
 - **后果**：分发模块需做成多通道抽象，wiki 通道先落地，微信通道后续按同一接口扩展。
 
+### ADR-0003: 三段式架构——采集 → 内部 wiki 层 → 外部分发
+
+- **状态**：已接受（2026-09-16，用户指定架构方向）
+- **决策**：系统分为三段：采集层（RSS/GitHub/网页）→ 内部 wiki 层（本地 `result/` markdown 为事实源 + 内网 MinDoc 为阅读入口）→ 分发层（飞书等外部通道，从事实源读取，通道抽象可扩展）。
+- **后果**：MinDoc 只是内部阅读入口而非数据源头，其故障不阻塞分发；`result/` 入 git 满足项目留痕要求；新增通道不改采集与汇编。
+- **详细设计**：见 `ai/design.md`。
+
+### ADR-0004: 飞书通道采用群自定义机器人 webhook
+
+- **状态**：已接受（2026-09-16）
+- **背景**：用户架构中引入飞书作为外部分发方向；T7 调查确认自定义机器人满足需求且零审批成本。
+- **决策**：飞书通道用群自定义机器人 webhook（`post` 富文本/`interactive` 卡片 + HMAC 签名），不建飞书应用、不申请租户权限。
+- **后果**：仅能向机器人所在群推送（满足"发汇总"场景）；单条 ≤20KB，默认走「卡片摘要 + wiki 链接」模式，全文模式按章节分片。
+
 ## 下一步调查
 
-1. T2：信息源 RSS/API 可用性清单（厂商博客、arXiv、Hacker News、中文源等）。
+1. T2：信息源 RSS/API 可用性清单（厂商博客、arXiv、Hacker News、中文源等）→ 产出 `sources.yaml` 初始清单供用户勾选。
 2. T3：GitHub API（releases/activity、限额、是否配 token）。
 3. T4：LLM API 选型与 token 成本估算。
 4. T5：调度与部署方式（本机 / 服务器 / cron）。
+5. T8（新）：外部 wiki 通道——待用户提供目标系统后调查（ADR-0003 分发层插件）。
