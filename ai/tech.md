@@ -18,7 +18,7 @@
 | T1 | 公司 wiki（MinDoc）架构与写入 API | ✅ 完成（2026-09-16，见下文） |
 | T2 | 信息源采集通道（RSS/API 清单） | ⬜ 未开始 |
 | T3 | GitHub API 能力与限额 | ⬜ 未开始 |
-| T4 | LLM API 选型与成本 | ⬜ 未开始 |
+| T4 | LLM API 选型与成本 | ✅ 选型已定（2026-09-16，用户决定：GLM 包月订阅；见 T4 小节与 ADR-0008；剩一次实测调用） |
 | T5 | 调度与部署方式 | ✅ 决策完成（2026-09-16，ADR-0006：本机 + cron 一次性命令 + 并发可配置） |
 | T6 | 微信推送通道 | ⏸ 延后（用户决定，见 ADR-0002） |
 | T7 | 飞书群机器人通道 | ✅ 调查完成 / ⏸ 实施延后（ADR-0004，见下文） |
@@ -93,6 +93,27 @@ POST /api/{key}/content/{id}    (markdown=..., cover=yes)
 - 单条 20KB 上限 → 全文推送需按章节分片（设计见 design.md §5）。
 - webhook 地址即凭据 → 存 `data/.env` 不入 git；签名 secret 同理。
 
+## T4 LLM 选型（GLM 包月订阅）
+
+### 结论
+
+LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成套餐专用 API Key，工具走 **OpenAI Chat Completions 兼容接口**调用；包月额度内无按量费用，"成本估算"转化为"额度是否够用"（以实测与用量监控为准）。
+
+### 关键事实（来源：智谱官方文档 docs.bigmodel.cn，2026-09-16）
+
+- Key 获取：登录后「个人编程套餐 → 套餐概览」新建 API Key；**套餐 Key 与平台普通 API Key 不通用**（团队版同理）。
+- 接口地址（套餐）：
+  - OpenAI Chat Completion：`https://open.bigmodel.cn/api/coding/paas/v4`（本工具采用）
+  - Anthropic Message：`https://open.bigmodel.cn/api/anthropic`
+- `model` 参数文档未列出全集（实现期用测试调用确认，如 `glm-4.7` 系列）。
+- 每轮用量预估（估算，供额度核对）：按每日 ~50 条、每条「原文 800 token + 输出 300 token」计，日约 5.5 万 token、周约 40 万 token，远低于包月套餐典型额度；工具侧另有 `llm_rpm` 限速保护。
+
+### 风险与错误处理
+
+- **用途限制**：套餐文档注明"仅限官方支持的指定工具与产品环境使用"。本工具为自用脚本，若实测被拒或违反条款，回退方案：平台普通 Key 按量计费调用同系列 GLM 模型（费用很低），或用户改用资源包。
+- **额度耗尽/限流**：按 design.md §7 的 LLM 错误处理（退避重试、条目降级 skipped）。
+- **待完成验证**：拿到 Key 后做一次真实 chat completion 调用（确认 base_url/key/model 三元组），列入实现期验证。
+
 ## ADR
 
 ### ADR-0001: wiki 发布采用「表单登录 + cookie 会话 + MinDoc Web API」
@@ -143,9 +164,15 @@ POST /api/{key}/content/{id}    (markdown=..., cover=yes)
 - **决策**：`config/sources.yaml` 与 `config/channels.yaml` 双配置驱动；每个 type 对应一个适配器；未支持类型在校验时报错、运行时跳过该单项不阻塞；新类型按项目流程（调查记 tech.md → 优先现成工具 → 自制 → task/verify 记录）。
 - **后果**：新增来源/目标只需改配置；适配器集合可增量扩展；配置 schema 见 design.md §2。
 
+### ADR-0008: LLM 采用 GLM 包月订阅（OpenAI 兼容接口）
+
+- **状态**：已接受（2026-09-16，用户决定）
+- **决策**：翻译/摘要/分类/趋势解读统一调用用户已有的 GLM Coding Plan：套餐 Key + `https://open.bigmodel.cn/api/coding/paas/v4`（OpenAI Chat Completions 兼容）；凭据填 `ai/secret.md` 的 `LLM_BASE_URL/LLM_API_KEY/LLM_MODEL`。
+- **后果**：包月额度内零边际成本，成本关注点变为额度余量（工具限速 + 用量监控）；若套餐对非指定工具调用受限，回退平台按量 Key 调用同系列模型。细节见 tech.md T4。
+
 ## 下一步调查
 
 1. T2：信息源 RSS/API 可用性清单（厂商博客、arXiv、Hacker News、中文源等）→ 产出 `sources.yaml` 初始清单供用户勾选。
 2. T3：GitHub API（releases/activity、限额、是否配 token）。
-3. T4：LLM API 选型与 token 成本估算。
-4. T8：拿到用户提供的样例 wiki URL 后，实测「通用 wiki 源分析器」可行性（静态/JS 渲染判定、API/RSS/sitemap 探测、子页发现与正文抽取，见 ADR-0005）。
+3. T8：拿到用户提供的样例 wiki URL 后，实测「通用 wiki 源分析器」可行性（静态/JS 渲染判定、API/RSS/sitemap 探测、子页发现与正文抽取，见 ADR-0005）。
+4. T4 尾项：拿到套餐 Key 后做一次真实调用验证（base_url/key/model 三元组）。
