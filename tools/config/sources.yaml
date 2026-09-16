@@ -3,15 +3,23 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
-  # ---- 知乎（ADR-0014：热榜 API 无需登录；话题级接口需登录未采用）----
+  # ---- 知乎（ADR-0014/0015：专栏文章 API 与热榜 API 均无需登录）----
+  - name: zhihu-ai-columns
+    type: zhihu
+    mode: column            # 专栏文章流：机构号/作者专栏最新文章（ADR-0015）
+    columns: [jiqizhixin, QbitAI, paperweekly]   # 专栏 slug = zhuanlan.zhihu.com/{slug}
+    per_column: 10          # 每专栏取最新 N 篇
+    rank_by: updated        # updated=按发布时间 | voteup=按点赞热度
+    topic: tech
+    enabled: true
+
   - name: zhihu-hot
     type: zhihu
-    mode: hot-list            # 全站热榜（最多 30 条）
+    mode: hot-list          # 全站热榜（最多 30 条）——AI 占比低，默认停用（用户不需要）
     limit: 30
-    ai_filter: true           # 仅保留标题命中 AI 关键词的条目
-    # keywords: [可在此追加过滤关键词]
+    ai_filter: true
     topic: news
-    enabled: true
+    enabled: false
 
   # ---- GitHub（已验证，T3/ADR-0012；四个 topic 2026-09-16 实测命中充足）----
   # mode: search=组合查询取热门 | trending=解析 github.com/trending 页（ADR-0013）| repo=跟踪指定仓库

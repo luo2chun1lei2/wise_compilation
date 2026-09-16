@@ -81,6 +81,57 @@ def load_source_entry(name):
     raise SystemExit("在 %s 中未找到启用的源 %r" % (SOURCES_PATH, name))
 
 
+def fetch_zhihu_columns(columns, per_column, rank_by):
+    """知乎专栏文章流（mode: column，ADR-0015）。
+
+    每个专栏取最新 per_column 篇（sort_by=created），合并后按 rank_by 排序：
+    updated=发布时间新在前 | voteup=点赞数高在前（热度排名）。
+    注意：专栏 meta 的 updated 字段过期不可信，以文章列表实际日期为准。
+    """
+    repos = []
+    for slug in columns:
+        meta = {}
+        try:
+            r = requests.get("https://www.zhihu.com/api/v4/columns/%s" % slug,
+                             headers={"User-Agent": UA}, timeout=30)
+            r.raise_for_status()
+            STATS["zhihu_api"] += 1
+            meta = r.json()
+        except Exception as exc:
+            print("  [warn] 专栏 %s meta: %s" % (slug, exc), file=sys.stderr)
+        col_name = meta.get("title") or slug
+        try:
+            r = requests.get("https://www.zhihu.com/api/v4/columns/%s/articles" % slug,
+                             params={"limit": per_column, "sort_by": "created"},
+                             headers={"User-Agent": UA}, timeout=30)
+            r.raise_for_status()
+            STATS["zhihu_api"] += 1
+        except Exception as exc:
+            print("  [warn] 专栏 %s articles: %s" % (slug, exc), file=sys.stderr)
+            time.sleep(FETCH_INTERVAL)
+            continue
+        for it in r.json().get("data", []):
+            created = it.get("created")
+            repos.append({
+                "full_name": it.get("title", "").strip(),
+                "html_url": it.get("url", ""),
+                "description": (it.get("excerpt") or "").strip(),
+                "stargazers_count": it.get("voteup_count", 0),
+                "language": None,
+                "topics": [],
+                "pushed_at": datetime.fromtimestamp(created).strftime("%Y-%m-%dT%H:%M:%S") if created else "",
+                "zhihu_meta": {"voteup": it.get("voteup_count", 0),
+                               "comments": it.get("comment_count", 0),
+                               "column": col_name},
+                "no_readme": True,
+            })
+        time.sleep(FETCH_INTERVAL)
+    repos.sort(key=lambda x: x["pushed_at"], reverse=(rank_by != "voteup"))
+    if rank_by == "voteup":
+        repos.sort(key=lambda x: x["stargazers_count"], reverse=True)
+    return [r for r in repos if r["full_name"] and r["html_url"]]
+
+
 def fetch_zhihu_hot(limit, ai_filter, extra_kws):
     """知乎全站热榜（mode: hot-list，ADR-0014）。
 
@@ -323,14 +374,19 @@ def cell(text):
 
 def render_md(entries, query, out_path, stats, elapsed, label=None):
     is_trending = "github.com/trending" in query
+    is_zhihu_col = bool(entries) and all("voteup" in e["meta"] for e in entries)
     is_zhihu = bool(entries) and all("heat" in e["meta"] for e in entries)
-    if is_zhihu:
+    if is_zhihu_col:
+        title = "知乎 AI 专栏更新 Top %d" % len(entries)
+    elif is_zhihu:
         title = "知乎热榜 AI 筛选 Top %d" % len(entries)
     elif label:
         title = "GitHub 热门项目 Top %d（%s）" % (len(entries), label)
     else:
         title = "GitHub AI 热门项目 Top %d" % len(entries)
-    if is_zhihu:
+    if is_zhihu_col:
+        data_src = "知乎专栏文章 API（api/v4/columns，无需登录）"
+    elif is_zhihu:
         data_src = "知乎热榜 API（api.zhihu.com，无需登录，AI 关键词过滤）"
     elif is_trending:
         data_src = "GitHub Trending 页面解析（本期 star 增量排序）"
@@ -349,7 +405,15 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         t = e["title"]
         return t if len(t) <= 36 else t[:35] + "…"
 
-    if is_zhihu:
+    if is_zhihu_col:
+        lines += ["| 排名 | 文章 | 专栏 | 赞 | 评论 | 中文简介 |", "|" + "---|" * 6]
+        for i, e in enumerate(entries, 1):
+            m = e["meta"]
+            lines.append("| %d | [%s](%s) | %s | %s | %s | %s |" % (
+                i, cell(disp_title(e)), e["url"], cell(m.get("column") or "-"),
+                format(m.get("voteup") or 0, ","), format(m.get("comments") or 0, ","),
+                cell(e["summary_zh"].split("\n")[0][:100])))
+    elif is_zhihu:
         lines += ["| 排名 | 话题 | 热度 | 回答 | 中文简介 |", "|" + "---|" * 5]
         for i, e in enumerate(entries, 1):
             ans = e["meta"].get("answers") or 0
@@ -374,7 +438,13 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
                     i, cell(disp_title(e)), e["url"], format(e["stars"], ","), lang_col, cell(brief)))
     lines += ["", "## 详情", ""]
     for i, e in enumerate(entries, 1):
-        metric = (e["meta"].get("heat") or "-") if is_zhihu else "%s★" % format(e["stars"], ",")
+        if is_zhihu_col:
+            metric = "%s 赞 · %s 评论" % (format(e["meta"].get("voteup") or 0, ","),
+                                          format(e["meta"].get("comments") or 0, ","))
+        elif is_zhihu:
+            metric = e["meta"].get("heat") or "-"
+        else:
+            metric = "%s★" % format(e["stars"], ",")
         lines += ["### %d. %s（%s）" % (i, e["title"], metric), ""]
         lines.append("- 链接：%s" % e["url"])
         lines.append("- 主题：%s" % ", ".join(e["meta"].get("topics", [])[:8]))
@@ -424,13 +494,23 @@ def main():
             args.per_page = int(entry.get("per_page") or 10)
         elif stype == "zhihu":
             zhihu_cfg = entry
-            args.query = "zhihu.com 热榜（AI 关键词过滤）"
+            if entry.get("mode") == "column":
+                args.query = "zhihu.com 专栏文章流（%s）" % ",".join(entry.get("columns") or [])
+            else:
+                args.query = "zhihu.com 热榜（AI 关键词过滤）"
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    if zhihu_cfg is not None:
+    if zhihu_cfg is not None and zhihu_cfg.get("mode") == "column":
+        print("[1/5] 知乎专栏：%s（每专栏 %s 篇，排序=%s）" % (
+            ",".join(zhihu_cfg.get("columns") or []),
+            zhihu_cfg.get("per_column", 10), zhihu_cfg.get("rank_by", "updated")))
+        repos = fetch_zhihu_columns(zhihu_cfg.get("columns") or [],
+                                    int(zhihu_cfg.get("per_column") or 10),
+                                    zhihu_cfg.get("rank_by", "updated"))
+    elif zhihu_cfg is not None:
         print("[1/5] 知乎热榜：limit=%s ai_filter=%s" % (
             zhihu_cfg.get("limit", 30), zhihu_cfg.get("ai_filter", True)))
         repos = fetch_zhihu_hot(int(zhihu_cfg.get("limit") or 30),

@@ -24,7 +24,7 @@
 | T7 | 飞书群机器人通道 | ✅ 调查完成 / ⏸ 实施延后（ADR-0004，见下文） |
 | T8 | 通用 wiki 源分析器可行性 | ⏸ 待用户提供样例 URL 后实测（ADR-0005） |
 | T11 | GitHub star 增速查询 | ✅ 调查完成（2026-09-16，见 T11 小节：官方 API 无此能力，采用自记录基线） |
-| T12 | 知乎信息源 | ✅ 调查完成（2026-09-16，热榜 API 可用，ADR-0014，实测 V4） |
+| T12 | 知乎信息源 | ✅ 调查完成（2026-09-16：热榜 API + **专栏文章 API 均无需登录**；专栏订阅为主，ADR-0014/0015，实测 V4/V5） |
 | T9 | 非 LLM 翻译工具选型 | ✅ 关闭（2026-09-16 决策改为 **LLM + 字节上限路由**，ADR-0010；Argos 调查留档备用） |
 | T10 | 非 AI 分析手段（归类/摘要/过滤） | ✅ 设计内解决（摘要级联提取：feed 自带/文首 TL;DR/文末总结/截断 + 规则归类 + 启发式过滤，ADR-0011） |
 
@@ -182,12 +182,14 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 
 | 入口 | 结果 |
 |---|---|
-| `api.zhihu.com/topstory/hot-list` | ✅ 无需登录；limit=50 实际最多返回 **30 条**；字段齐全 |
-| 话题 feeds API（人工智能 19551275 等路径） | ❌ 404（话题级接口需登录态/签名，未采用） |
-| 网页版 `www.zhihu.com/hot` | ❌ 403（反爬） |
+| `api.zhihu.com/topstory/hot-list` | ✅ 无需登录；limit=50 实际最多返回 **30 条**；字段齐全（AI 占比低，热榜源默认停用） |
+| **`www.zhihu.com/api/v4/columns/{slug}/articles`** | ✅ **无需登录**（用户所需的"文章流"）；每篇自带 标题/excerpt/链接/**点赞数**/评论数/创建时间；`sort_by=created` 按最新 |
+| `www.zhihu.com/api/v4/columns/{slug}` | ✅ 专栏元信息（名称/简介/文章数）；**meta 的 updated 字段过期不可信** |
+| 话题 feeds API / 机构号动态接口 | ❌ 需登录态或 404 |
+| 网页版 `www.zhihu.com/hot`、`zhuanlan.zhihu.com` | ❌ 403 反爬 |
 
-- 全站热榜以时事为主，实测 30 条中 AI 相关约 2 条——过滤后条数少是正常现象，按天采集累积进周报。
-- 知乎内容为中文：`zh-skip` 零 LLM 消耗，摘要直接用接口 `excerpt`（feed 级）。
+- AI 专栏 slug 探测（2026-09-16）：`jiqizhixin`（机器之心，活跃）、`QbitAI`（量子位，活跃）、`paperweekly`（PaperWeekly，2023-11 后停更）；专栏 slug 即 `zhuanlan.zhihu.com/{slug}`，用户可自行追加。
+- 中文内容全部 `zh-skip` 零 LLM；摘要用接口 `excerpt`（feed 级）。
 
 ## ADR
 
@@ -206,6 +208,13 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 - **状态**：已接受（2026-09-16，用户要求新增知乎源）
 - **决策**：`sources.yaml` 新增 `type: zhihu, mode: hot-list`（limit≤30，`ai_filter: true` 按内置 AI 关键词表过滤标题，`keywords` 可追加）；条目映射：话题=标题、热度=detail_text、回答数=answer_count、摘要=excerpt（feed 级自带）；话题级接口需登录，未采用。
 - **后果**：零登录、零 LLM（中文源自动 zh-skip）获取知乎热点；AI 条目数取决于热榜当日构成（实测 30 条中约 2 条），按天采集累积；如需 AI 话题流全量，后续可由用户提供知乎 cookie 扩展。
+- **修订**：2026-09-16 用户反馈热榜非所需（要文章/专栏内容）——知乎信息源主方式改为专栏订阅（ADR-0015），热榜源默认停用（`zhihu-hot.enabled: false`）。
+
+### ADR-0015: 知乎源主方式改为专栏文章订阅（mode: column）
+
+- **状态**：已接受（2026-09-16，用户要求获取 AI 文章/专栏内容）
+- **决策**：`type: zhihu, mode: column`，配置 `columns: [slug...]`（slug 即 `zhuanlan.zhihu.com/{slug}`，用户可自行追加）、`per_column`（每专栏取最新 N 篇）、`rank_by: updated|voteup`（按发布时间或点赞热度排序）。数据来自 `api/v4/columns/{slug}/articles`（无需登录），每篇自带 点赞/评论/excerpt。
+- **后果**：直接获得 AI 机构号/作者的文章流，点赞数可作热点排序；新增专栏只需在配置加 slug；停更专栏不产生条目（自然失效）。实测：机器之心+量子位 30 篇（V5），当日内容。
 
 ### ADR-0012: GitHub 源采用官方 Search API（策略 C 组合查询），不爬 Trending 页
 
