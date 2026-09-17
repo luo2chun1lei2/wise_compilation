@@ -7,14 +7,17 @@
 ## 文件布局
 
 - ai/
-	- proposal.md : 需求和提案。
+	- proposal.md : 需求和提案，以及「要求列表」（过程记录）。
 	- tech.md : 技术调查的结果，以及 ADR（技术决策记录）。
 	- design.md : 根据技术调查的系统设计。
 	- task.md : 按照调查结果的计划和任务完成情况。
 	- verify.md : 验证方法，记录功能完成情况，以及测试和验证的记录。
+	- secret.md : 凭据（gitignore，不入库）；模板为 secret.example.md。
 - tools/ : 放置项目用的代码或工具等。
+- config/ : 配置文件。sources.yaml（信息源）、channels.yaml（分发通道）、topics.yaml（专题）、settings.yaml（运行参数）。
 - material/  :  原材料，是收集来的原材料。
-- result/ : 编纂后的资料。
+- result/ : 编纂后的资料（按日期子目录归档，如 result/2026-09-16/）。
+- data/ : 运行数据（SQLite、日志；gitignore，不入库）。
 - README.md : 对用户的使用说明。
 
 ## 项目中对规格的要求

@@ -83,12 +83,12 @@ tools/
       # wechat.py / ext_wiki.py —— 后续按 ADR-0002 与目标确定后扩展
     scheduler.py           # 调度入口（兼容 cron 单次调用与常驻两种方式，T5 定）
     cli.py                 # 子命令：collect / compile / publish / deliver / run / verify
-  config/
-    sources.yaml           # 信息源清单（T2 产出初始清单后由用户确认）
-    topics.yaml            # 专题定义与模板变量
-    channels.yaml          # 分发通道开关与模式（card/full）
-    settings.yaml          # 运行参数：concurrency.fetch/llm_rpm、translate.max_bytes/oversize、llm_polish 等
   requirements.txt
+config/                    # 配置目录（2026-09-17 从 tools/config/ 移至根目录）
+  sources.yaml             # 信息源清单
+  topics.yaml              # 专题定义与模板变量
+  channels.yaml            # 分发通道开关与模式（card/full）
+  settings.yaml            # 运行参数：concurrency.fetch/llm_rpm、translate.max_bytes/oversize、llm_polish 等
 data/                      # 运行数据（不入 git）：wise.db、cookies.json、日志
 material/                  # 原料索引（AGENTS.md 布局）
 result/                    # 汇编成品 = 事实源（入 git；按日期子目录归档，如 result/2026-09-16/）

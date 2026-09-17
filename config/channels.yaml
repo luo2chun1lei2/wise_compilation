@@ -23,7 +23,7 @@ channels:
     type: email                # 公司邮箱（ADR-0018，阿里云企业邮箱 SMTP，允许内部信息）；配置见 ai/secret.md 的 EMAIL_*
     target: colleagues
     mode: card
-    enabled: true              # 2026-09-18 实测通过（测试邮件 + 当日汇总）
+    enabled: true              # 2026-09-17 实测通过（测试邮件 + 当日汇总）
 
   # 后续按同样格式追加：
   # - name: team-feishu

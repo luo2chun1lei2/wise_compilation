@@ -21,7 +21,7 @@
 ## V2 四 topic 多源试跑（2026-09-16）
 
 - **目的**：验证 sources.yaml 多源配置（用户指定 topic：codex / artificial-intelligence / agent-harness / ai-agents）与 `--source` 按配置运行。
-- **命令**：`python3 tools/gh_ai_top10.py --source <name>`（四个源各一次，源定义见 `tools/config/sources.yaml`）。
+- **命令**：`python3 tools/gh_ai_top10.py --source <name>`（四个源各一次，源定义见 `config/sources.yaml`）。
 - **结果**：✅
   - 四源全部跑通，各产出一份排名文档（`result/github-<topic>-2026-09-16.md`）。
   - 查询参数支持 `now-Nd` 相对日期占位符（运行时解析）。
@@ -96,7 +96,7 @@
 - **工具变更**：`mindoc_publish.py` write_content 双写 html；page_visible 匿名正文校验（带重试）；索引追加逻辑去重（标题只保留一个）。
 - **验证**：`http://gr_wiki.grt.sy/docs/ai-digest` 目录 = 2026-09-16（索引页，含两链接）+ 两份榜单，正文匿名可见 ✓。
 
-## V8 邮件通知通道（2026-09-18，ADR-0018）
+## V8 邮件通知通道（2026-09-17，ADR-0018）
 
 - **目的**：验证公司邮箱 SMTP 通知链路（内部信息允许的通道）。
 - **配置来源**：SMTP 参数从本机 Thunderbird `prefs.js` 提取（smtp.mxhichina.com:465 SSL，阿里云企业邮箱）；密码由用户填入 secret.md；SSL 连通性实测（220 AliMail 横幅）。

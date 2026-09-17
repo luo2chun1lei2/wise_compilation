@@ -24,7 +24,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SECRET_PATH = ROOT / "ai" / "secret.md"
-SOURCES_PATH = ROOT / "tools" / "config" / "sources.yaml"
+SOURCES_PATH = ROOT / "config" / "sources.yaml"
 DATA_DIR = ROOT / "data"
 RESULT_DIR = ROOT / "result"
 DB_PATH = DATA_DIR / "wise.db"
@@ -73,7 +73,7 @@ def resolve_query(query):
 
 
 def load_source_entry(name):
-    """从 tools/config/sources.yaml 读取指定源的配置。"""
+    """从 config/sources.yaml 读取指定源的配置。"""
     data = yaml.safe_load(SOURCES_PATH.read_text(encoding="utf-8"))
     for s in data.get("sources") or []:
         if s.get("name") == name and s.get("enabled", True):
@@ -472,7 +472,7 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--source", help="按名运行 tools/config/sources.yaml 中的 github 源")
+    ap.add_argument("--source", help="按名运行 config/sources.yaml 中的 github 源")
     ap.add_argument("--query", default=DEFAULT_QUERY.format(
         week=date.fromtimestamp(time.time()).strftime("%Y-%m-%d")))
     ap.add_argument("--per-page", type=int, default=10)
