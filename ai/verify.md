@@ -117,3 +117,12 @@
   1. CSDN 的 digg/comment 字段是字符串 → render 的千分位格式化崩（已加 `_int` 兜底）；
   2. "AI" 泛关键词结果偏入门科普（多 0 赞）——调优：换关键词/点赞门槛/改用 nav/ai 频道页（T15 注记）。
 - **结论**：CSDN 源可行并已启用（sources.yaml）。
+
+## V10 一键流水线与定时任务（2026-09-17）
+
+- **目的**：验证 `tools/run_pipeline.py`（采集→发布→通知全链路）与 `tools/schedule.py`（crontab 管理）。
+- **命令**：`python3 tools/run_pipeline.py`；`python3 tools/schedule.py --check/--install`
+- **结果**：✅
+  - 流水线：采集 7/7 源成功、发布 7/7 文档（wiki 出现 day-20260917 分组 + 7 篇）、邮件通知 OK；总耗时 1243s（github.com 当日网络慢，含 3 次退避重试），日志落 `data/logs/pipeline-2026-09-17.log`。
+  - crontab：命令可用、cron 服务运行中；已安装默认定时 **每天 08:30**（托管块标记，`--remove` 可移除；日志 data/logs/cron.log）。
+- **结论**：从收集到发送的完整闭环可手工执行也可定时执行；cron 环境使用绝对路径 python，无环境依赖。

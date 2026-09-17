@@ -52,6 +52,18 @@ python3 tools/email_notify.py --digest-day 2026-09-16    # 汇总当日发布，
 python3 tools/email_notify.py --test                     # 通道自测
 ```
 
+### 5. 一键全链路 与 定时运行（推荐）
+
+```bash
+python3 tools/run_pipeline.py                 # 采集全部启用源 → 发布 wiki → 邮件通知
+python3 tools/schedule.py --check             # 检查 crontab/cron 服务可用性
+python3 tools/schedule.py --install           # 安装定时（默认每天 08:30）
+python3 tools/schedule.py --install --cron '0 9 * * 1'   # 例：每周一 09:00
+python3 tools/schedule.py --remove            # 移除定时
+```
+
+流水线日志：`data/logs/pipeline-<日期>.log`；cron 运行日志：`data/logs/cron.log`。各源/环节失败相互隔离，汇总行显示成败计数。
+
 ## 配置说明（config/）
 
 | 文件 | 作用 | 常用操作 |
