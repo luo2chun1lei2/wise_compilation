@@ -70,6 +70,7 @@ POST /api/{key}/content/{id}    (markdown=..., cover=yes)
 ```
 
 - 持久化 cookie jar；每次发布前用轻量已登录探测（如 AJAX 访问受保护页）检测 403/302，失效则重走登录。
+- **2026-09-16 端到端实测修订（V6）**：会话探测改用非 AJAX 的 `/book`（部署版 `/setting` 匿名也 200；过滤器对 AJAX 返回 200+errcode JSON）；create 响应字段为 `doc_id`；文档树按 `doc_identify` 幂等匹配；delete 需带 `identify` 参数；建项目需 `itemId`（`/book/itemsets/search`）。详见 verify.md V6 与 `tools/mindoc_publish.py`。
 
 ### 风险与错误处理
 

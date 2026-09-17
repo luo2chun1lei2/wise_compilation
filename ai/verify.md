@@ -69,3 +69,19 @@
   1. 专栏 meta 的 `updated` 字段过期（机器之心显示 2020 实为当日仍在更），判断活跃度以文章列表实际日期为准——已写入 T12 记录；
   2. excerpt 含"[图片]"等占位符噪音，后续可在简介清洗时过滤。
 - **结论**：专栏订阅即用户所需"AI 文章流 + 热点（点赞）排序"，已设为主源（zhihu-hot 停用）。
+
+## V6 ai-digest 发布链路（MinDoc 写入，2026-09-16）
+
+- **目的**：跑通 ADR-0001 的完整发布链路：登录 → 建项目（book）→ 建文档 → 写内容 → 读回校验 → 删除。
+- **工具**：`tools/mindoc_publish.py`（自测子命令 + 幂等发布子命令）。
+- **结果**：✅
+  - **发现账号下并无 `ai-digest` 项目**（用户此前以为已建）→ 由工具创建：book_id=2，identify=`ai-digest`，公开，editor=markdown，归属「谦川内部知识库空间」。
+  - 自测通过：临时文档 建立identify匹配→覆盖写入→读回校验→删除，2 秒。
+  - 发布 2 份真实成果并通过读回校验：`GitHub Trending 月榜（2026-09-16）`（doc_id=274）、`知乎 AI 专栏精选（2026-09-16）`（doc_id=275）；匿名访问 `/docs/ai-digest` 可见目录。
+- **踩坑记录（部署版与 master 源码差异，均已处理）**：
+  1. 会话探测：部署版 `/setting` 匿名也返回 200；且登录过滤器对 AJAX 请求返回 **HTTP 200 + errcode JSON**（状态码不带 403）→ 探测必须用非 AJAX 的 `/book`（匿名 302）；
+  2. create 响应字段是 `doc_id`（非源码里的 `document_id`）；
+  3. 文档树实际结构：`<li id="{doc_id}"><a href=".../docs/{book}/{doc_identify}" title="…">`（链接用 identify 而非数字 id）→ 幂等匹配按 identify；
+  4. delete 需要表单参数 `identify`（非仅 doc_id）；
+  5. 建项目 `POST /book/create` 必须带项目空间 `itemId`（从 `/book/itemsets/search` 获取）。
+- **遗留**：项目内有一篇默认「空白文档」（doc_id=271），可人工删除或保留作为说明页。
