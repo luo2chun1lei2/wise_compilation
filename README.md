@@ -61,7 +61,7 @@ python3 tools/email_notify.py --test                     # 通道自测
 | `topics.yaml` | 专题定义与归类关键词 | 加专题/关键词 |
 | `settings.yaml` | 运行参数 | 并发、LLM 限速、翻译字节上限（默认 5000B）、润色开关 |
 
-**当前启用的源**：`github-trending-monthly`（热榜月增速）、`github-codex` / `github-artificial-intelligence` / `github-agent-harness` / `github-ai-agents`（四个 topic 榜）、`zhihu-ai-columns`（机器之心/量子位等专栏）。
+**当前启用的源**：`github-trending-monthly`（热榜月增速）、`github-codex` / `github-artificial-intelligence` / `github-agent-harness` / `github-ai-agents`（四个 topic 榜）、`zhihu-ai-columns`（机器之心/量子位等专栏）、`csdn-ai-search`（CSDN 近 3 天 AI 文章）。
 
 ## 目录结构
 

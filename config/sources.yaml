@@ -3,6 +3,17 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
+  # ---- CSDN（ADR-0019：so.csdn.net 搜索接口，时间窗+关键词过滤，无需登录）----
+  - name: csdn-ai-search
+    type: csdn
+    mode: search            # 搜博客文章；tm=时间窗(1=当天,2/3=更宽)，days=客户端二次过滤
+    query: AI
+    tm: 2
+    size: 30
+    days: 3                 # 只保留近 N 天
+    topic: tech
+    enabled: true
+
   # ---- 知乎（ADR-0014/0015：专栏文章 API 与热榜 API 均无需登录）----
   - name: zhihu-ai-columns
     type: zhihu

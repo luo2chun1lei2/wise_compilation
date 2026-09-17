@@ -107,3 +107,13 @@
   1. secret 行内中文注释被解析进收件人地址（RCPT 报 Unicode 错）→ load_secret 剥离行内注释；
   2. `--digest-day` 原按 runs.finished_at 过滤（发布动作时间 ≠ 汇总日）→ 改为按文档 identify 前缀 `digest-YYYYMMDD-*` 筛选并按 identify 去重（同名重复发布取最新）；wxpusher_notify.py 同步修复。
 - **通道状态**：channels.yaml `email-colleagues` 已启用；收件人暂为用户本人，待收集同事地址后追加。
+
+## V9 CSDN 搜索源（2026-09-17）
+
+- **目的**：验证 `type: csdn, mode: search`（ADR-0019）；同时记录 InfoQ 调查（匿名无接口，T15）。
+- **命令**：`python3 tools/gh_ai_top10.py --source csdn-ai-search`
+- **结果**：✅ 搜索接口（so.csdn.net/api/v3，无需登录）返回 30 篇近 3 天 AI 文章（tm=2 + 客户端 days 过滤），含标题/链接/日期/摘要/点赞/评论/作者；产出 `result/2026-09-17/csdn-ai-search.md`；中文源零 LLM。
+- **发现的问题与改进项**：
+  1. CSDN 的 digg/comment 字段是字符串 → render 的千分位格式化崩（已加 `_int` 兜底）；
+  2. "AI" 泛关键词结果偏入门科普（多 0 赞）——调优：换关键词/点赞门槛/改用 nav/ai 频道页（T15 注记）。
+- **结论**：CSDN 源可行并已启用（sources.yaml）。

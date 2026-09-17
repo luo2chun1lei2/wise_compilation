@@ -37,7 +37,7 @@ FETCH_INTERVAL = 1.0         # 对 github.com 的请求间隔（ADR-0006 礼貌�
 DEFAULT_QUERY = "topic:artificial-intelligence stars:>500 pushed:>{week}"
 
 # 运行统计（成本项）：token 数来自 GLM 响应的 usage 字段，精确值
-STATS = {"gh_api": 0, "zhihu_api": 0, "llm_calls": 0, "prompt_tokens": 0,
+STATS = {"gh_api": 0, "zhihu_api": 0, "csdn_api": 0, "llm_calls": 0, "prompt_tokens": 0,
          "completion_tokens": 0, "total_tokens": 0}
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
@@ -130,6 +130,46 @@ def fetch_zhihu_columns(columns, per_column, rank_by):
     if rank_by == "voteup":
         repos.sort(key=lambda x: x["stargazers_count"], reverse=True)
     return [r for r in repos if r["full_name"] and r["html_url"]]
+
+
+def fetch_csdn_search(query, tm, size, days):
+    """CSDN 文章搜索（type: csdn, mode: search，ADR-0019）。
+
+    so.csdn.net 公开接口：q=关键词、t=blog、tm=时间窗（1=当天，2/3=更宽），
+    返回 标题/链接/created_at/description/点赞。days 为客户端二次过滤（如 3 天内）。
+    """
+    r = requests.get("https://so.csdn.net/api/v3/search",
+                     params={"q": query, "t": "blog", "p": 1, "tm": tm, "size": size, "v": 3},
+                     headers={"User-Agent": UA}, timeout=30)
+    r.raise_for_status()
+    STATS["csdn_api"] += 1
+    cutoff = date.today() - timedelta(days=days)
+    repos = []
+    for it in r.json().get("result_vos", []):
+        created = str(it.get("created_at") or "")[:10]
+        try:
+            if datetime.strptime(created, "%Y-%m-%d").date() < cutoff:
+                continue
+        except ValueError:
+            pass
+        title = re.sub(r"</?em>", "", str(it.get("title") or "")).strip()
+        url = re.sub(r"\?.*$", "", str(it.get("url") or ""))
+        if not (title and "/article/details/" in url):
+            continue
+        repos.append({
+            "full_name": title,
+            "html_url": url,
+            "description": re.sub(r"</?em>", "", str(it.get("description") or "")).strip(),
+            "stargazers_count": 0,
+            "language": None,
+            "topics": [],
+            "pushed_at": created,
+            "zhihu_meta": {"voteup": it.get("digg") or 0,
+                           "comments": it.get("comment") or 0,
+                           "column": it.get("author") or ""},
+            "no_readme": True,
+        })
+    return repos
 
 
 def fetch_zhihu_hot(limit, ai_filter, extra_kws):
@@ -377,8 +417,9 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     is_zhihu_col = bool(entries) and all("voteup" in e["meta"] for e in entries)
     is_zhihu = bool(entries) and all("heat" in e["meta"] for e in entries)
     day = date.today().strftime("%Y-%m-%d")
+    is_csdn = "csdn.net" in query
     if is_zhihu_col:
-        title = "知乎 AI 专栏榜（%s）" % day
+        title = ("CSDN AI 文章榜（%s）" % day) if is_csdn else ("知乎 AI 专栏榜（%s）" % day)
     elif is_zhihu:
         title = "知乎热榜 AI 筛选（%s）" % day
     elif label:
@@ -386,7 +427,8 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     else:
         title = "GitHub AI 热门项目榜（%s）" % day
     if is_zhihu_col:
-        data_src = "知乎专栏文章 API（api/v4/columns，无需登录）"
+        data_src = ("CSDN 搜索接口（so.csdn.net/api/v3，时间窗过滤）" if is_csdn
+                    else "知乎专栏文章 API（api/v4/columns，无需登录）")
     elif is_zhihu:
         data_src = "知乎热榜 API（api.zhihu.com，无需登录，AI 关键词过滤）"
     elif is_trending:
@@ -407,12 +449,17 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         return t if len(t) <= 36 else t[:35] + "…"
 
     if is_zhihu_col:
+        def _int(x):
+            try:
+                return int(x)
+            except (TypeError, ValueError):
+                return 0
         lines += ["| 排名 | 文章 | 专栏 | 赞 | 评论 | 中文简介 |", "|" + "---|" * 6]
         for i, e in enumerate(entries, 1):
             m = e["meta"]
             lines.append("| %d | [%s](%s) | %s | %s | %s | %s |" % (
                 i, cell(disp_title(e)), e["url"], cell(m.get("column") or "-"),
-                format(m.get("voteup") or 0, ","), format(m.get("comments") or 0, ","),
+                format(_int(m.get("voteup")), ","), format(_int(m.get("comments")), ","),
                 cell(e["summary_zh"].split("\n")[0][:100])))
     elif is_zhihu:
         lines += ["| 排名 | 话题 | 热度 | 回答 | 中文简介 |", "|" + "---|" * 5]
@@ -440,8 +487,8 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     lines += ["", "## 详情", ""]
     for i, e in enumerate(entries, 1):
         if is_zhihu_col:
-            metric = "%s 赞 · %s 评论" % (format(e["meta"].get("voteup") or 0, ","),
-                                          format(e["meta"].get("comments") or 0, ","))
+            metric = "%s 赞 · %s 评论" % (format(_int(e["meta"].get("voteup")), ","),
+                                          format(_int(e["meta"].get("comments")), ","))
         elif is_zhihu:
             metric = e["meta"].get("heat") or "-"
         else:
@@ -465,6 +512,8 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
               "| GitHub API 调用 | %d 次（限额 60/时，未认证） | 计数 |" % stats["gh_api"]]
     if stats.get("zhihu_api"):
         lines.append("| 知乎 API 调用 | %d 次（无需登录） | 计数 |" % stats["zhihu_api"])
+    if stats.get("csdn_api"):
+        lines.append("| CSDN API 调用 | %d 次（无需登录） | 计数 |" % stats["csdn_api"])
     lines += [
               "| 总耗时（获取→生成） | %.0f 秒 | 计时，统计系统占用时间 |" % elapsed, ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
@@ -482,6 +531,7 @@ def main():
     label = None
     trending_since = None
     zhihu_cfg = None
+    csdn_cfg = None
     if args.source:
         entry = load_source_entry(args.source)
         label = args.source
@@ -499,12 +549,24 @@ def main():
                 args.query = "zhihu.com 专栏文章流（%s）" % ",".join(entry.get("columns") or [])
             else:
                 args.query = "zhihu.com 热榜（AI 关键词过滤）"
+        elif stype == "csdn":
+            csdn_cfg = entry
+            args.query = "csdn.net 搜索（q=%s，tm=%s，近 %s 天）" % (
+                entry.get("query"), entry.get("tm", 2), entry.get("days", 3))
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    if zhihu_cfg is not None and zhihu_cfg.get("mode") == "column":
+    if csdn_cfg is not None:
+        print("[1/5] CSDN 搜索：q=%s tm=%s size=%s days=%s" % (
+            csdn_cfg.get("query"), csdn_cfg.get("tm", 2),
+            csdn_cfg.get("size", 30), csdn_cfg.get("days", 3)))
+        repos = fetch_csdn_search(csdn_cfg.get("query") or "AI",
+                                  int(csdn_cfg.get("tm") or 2),
+                                  int(csdn_cfg.get("size") or 30),
+                                  int(csdn_cfg.get("days") or 3))
+    elif zhihu_cfg is not None and zhihu_cfg.get("mode") == "column":
         print("[1/5] 知乎专栏：%s（每专栏 %s 篇，排序=%s）" % (
             ",".join(zhihu_cfg.get("columns") or []),
             zhihu_cfg.get("per_column", 10), zhihu_cfg.get("rank_by", "updated")))

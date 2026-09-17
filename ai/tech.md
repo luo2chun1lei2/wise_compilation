@@ -22,7 +22,8 @@
 | T5 | 调度与部署方式 | ✅ 决策完成（2026-09-16，ADR-0006：本机 + cron 一次性命令 + 并发可配置） |
 | T6 | 微信推送通道 | 🔶 调查完成；通道全部暂缓（2026-09-17：企业微信无组织；WxPusher 因**内部信息不得经公众号外发**而搁置试验，ADR-0016/0017） |
 | T13 | 邮件通知通道 | ✅ 方案确定（2026-09-17，ADR-0018：公司 SMTP + 同事邮箱清单；工具已预置，待用户提供 SMTP 参数实测） |
-| T14 | 微信公众号文章/视频号采集 | 🔶 调查完成（2026-09-17，见 T14 小节：视频号无合规通道；公众号自动发现不可稳定，"手动投喂链接"可行待用户确认） |
+| T14 | 微信公众号文章/视频号采集 | ⏸ 搁置（2026-09-17 用户决定：自动汇集不可行、依赖人工选文；"手动投喂/邮件投喂"变体留档 T14 小节，需要时再启用） |
+| T15 | InfoQ / CSDN 文章接口 | ✅ 调查完成（2026-09-17，见 T15 小节：InfoQ 匿名无接口；CSDN 搜索接口可用并已实装，ADR-0019） |
 | T7 | 飞书群机器人通道 | ✅ 调查完成 / ⏸ 实施延后（ADR-0004，见下文） |
 | T8 | 通用 wiki 源分析器可行性 | ⏸ 待用户提供样例 URL 后实测（ADR-0005） |
 | T11 | GitHub star 增速查询 | ✅ 调查完成（2026-09-16，见 T11 小节：官方 API 无此能力，采用自记录基线） |
@@ -240,6 +241,28 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 | **手动投喂链接** | ✅ 可行：用户把文章 URL 粘贴进清单 → 工具抓取公开文章页（标题/publish_time/正文）→ 时间窗（如 3 天）+ AI 关键词过滤 → 汇入管道 |
 | 内容覆盖备注 | AI 头部公众号（机器之心/量子位等）的内容与其网站/知乎专栏高度同步，现有源已覆盖大半 |
 
+## T15 InfoQ / CSDN 文章接口调查（2026-09-17）
+
+### InfoQ（infoq.cn）：❌ 匿名无可用接口
+
+| 入口 | 实测 |
+|---|---|
+| `infoq.cn/graphql` | 301 → www 后 **405**（openresty 边缘拦截 POST，加 Origin/Referer 无效） |
+| `/rss`、`/sitemap.xml` | 200 但落到 SPA 壳页面（无内容） |
+| `/public/v1/*`、`/api/*` | **451**（拒绝） |
+| 首页内嵌数据 | 无（674KB 全是前端资源，内容靠被拦的 GraphQL 加载） |
+
+结论：合规匿名路径不存在；变体仅剩搜索引擎级发现或手动投喂，维持不做。
+
+### CSDN：✅ 搜索接口可用（已实装，ADR-0019）
+
+- **搜索接口** `GET so.csdn.net/api/v3/search?q=AI&t=blog&tm=N&size=M`（无需登录）：
+  - `tm` 时间窗参数实测：1=当天（全部今日）、2/3=更宽窗口；条目自带 `created_at` → 客户端可精确过滤"近 3 天"；
+  - 字段：标题/链接/created_at/description 摘要/点赞(digg)/评论/作者——中文源零 LLM。
+- **AI 频道页** `blog.csdn.net/nav/ai`：服务端渲染（21+ 篇当日 AI 文章+链接，无需登录），作为备选采集面。
+- 已实现 `type: csdn, mode: search`（config：`csdn-ai-search`，query/tm/size/days 可调），产出 `result/2026-09-17/csdn-ai-search.md`（30 篇，V9）。
+- **质量注记**：按 "AI" 关键词搜索偏入门科普文（赞多为 0）；调优手段：换关键词（如"大模型/AI Agent"）、加点赞门槛（digg>0）、或改用 nav/ai 频道页（编辑精选，质量高）。
+
 ## T6 微信通知调查（2026-09-17，用户要求重启）
 
 ### 结论
@@ -298,6 +321,12 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 - **决策**：经**公司 SMTP 服务器**发邮件通知（`tools/email_notify.py`，Python 标准库 smtplib，零第三方依赖）：`--test` / `--notify 标题 URL` / `--digest-day 日期`（当日发布汇总 + 文档链接）。凭据与收件人清单存 `ai/secret.md`（`EMAIL_SMTP_HOST/PORT/SSL/USER/PASS/FROM/TO`），内网免认证 relay 时 USER/PASS 留空。
 - **探测记录（2026-09-17）**：`smtp/mail/email/pop/imap.grt.sy` 常见端口（25/465/587/110/143）均无响应——SMTP 服务器地址需用户从邮件客户端设置或 IT 获取。
 - **后果**：数据不出内网（保密合规）；依赖公司邮件服务器可用性；收件人清单维护在 secret.md（不入 git）。
+
+### ADR-0019: CSDN 源采用 so.csdn.net 搜索接口
+
+- **状态**：已接受（2026-09-17）
+- **决策**：`sources.yaml` 新增 `type: csdn, mode: search`（query/tm/size/days 可配，tm 时间窗 + days 客户端过滤表达"近 N 天"）；条目映射：文章=标题、专栏=作者、赞/评论=digg/comment、摘要=description。备选采集面：nav/ai 频道页（服务端渲染）。
+- **后果**：新增中文 AI 文章流（零 LLM）；搜索质量依赖关键词，可按 T15 注记调优。
 
 ### ADR-0013: github 源新增 trending 模式——解析 github.com/trending 页面
 
