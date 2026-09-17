@@ -14,10 +14,10 @@ channels:
     enabled: false             # 公司无企业微信组织，暂不可用（ADR-0017 修订，代码保留）
 
   - name: wxpusher-wechat
-    type: wxpusher             # WxPusher 主题群发→同事微信（ADR-0017）；凭据 WXPUSHER_APP_TOKEN/TOPIC_ID
+    type: wxpusher             # WxPusher 主题群发→同事微信（ADR-0017）
     target: ai-digest-topic
     mode: card
-    enabled: false             # 拿到 appToken/topicId 后改 true
+    enabled: false             # 暂缓：汇集内容含公司内部信息，不得经公众号/第三方通道外发（用户决定 2026-09-17）
 
   # 后续按同样格式追加：
   # - name: team-feishu
