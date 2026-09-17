@@ -376,14 +376,15 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     is_trending = "github.com/trending" in query
     is_zhihu_col = bool(entries) and all("voteup" in e["meta"] for e in entries)
     is_zhihu = bool(entries) and all("heat" in e["meta"] for e in entries)
+    day = date.today().strftime("%Y-%m-%d")
     if is_zhihu_col:
-        title = "知乎 AI 专栏更新 Top %d" % len(entries)
+        title = "知乎 AI 专栏榜（%s）" % day
     elif is_zhihu:
-        title = "知乎热榜 AI 筛选 Top %d" % len(entries)
+        title = "知乎热榜 AI 筛选（%s）" % day
     elif label:
-        title = "GitHub 热门项目 Top %d（%s）" % (len(entries), label)
+        title = "GitHub 热门项目（%s · %s）" % (label, day)
     else:
-        title = "GitHub AI 热门项目 Top %d" % len(entries)
+        title = "GitHub AI 热门项目榜（%s）" % day
     if is_zhihu_col:
         data_src = "知乎专栏文章 API（api/v4/columns，无需登录）"
     elif is_zhihu:

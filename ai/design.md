@@ -165,11 +165,12 @@ AI 资讯汇编
  └─ 技术汇总/  tech-2026-09, tech-2026-10, …
 ```
 
-- 发布算法（幂等）：
-  1. 探测会话（AJAX 访问受保护页）→ 403/302 则重登（流程见 tech.md T1）。
-  2. `GET /api/{key}/content/{doc_id}`：不存在则 `POST /api/{key}/create`（带 `doc_identify`）建文档；存在则直接更新。
-  3. `POST /api/{key}/content/{doc_id}`（`markdown=成品`、`cover=yes`）。
-  4. 写 `publish_log`；失败重试 ≤2 次后告警并跳过（成品仍在 `result/`，不丢）。
+- 发布算法（幂等，2026-09-16 V7 修订）：
+  1. 探测会话（非 AJAX 访问 `/book`，匿名 302 即失效）→ 失效则重登。
+  2. **日期分组**：确保当日父节点存在（`doc_identify=day-YYYYMMDD`，标题=日期），文档挂其下；父节点维护当日索引（链接清单）。
+  3. 按 `doc_identify` 在目录树中查文档：不存在则 `POST /api/{key}/create`（带 parent_id）；存在则更新。
+  4. `POST /api/{key}/content/{doc_id}`：**markdown + 客户端转换的 html 双写**（部署站后台发布队列不执行，只写 markdown 阅读页空白，V7），`cover=yes`。
+  5. 匿名读阅读页校验正文可见（带重试）；写 `publish_log`。
 
 ## 5. 分发层设计
 

@@ -84,4 +84,14 @@
   3. 文档树实际结构：`<li id="{doc_id}"><a href=".../docs/{book}/{doc_identify}" title="…">`（链接用 identify 而非数字 id）→ 幂等匹配按 identify；
   4. delete 需要表单参数 `identify`（非仅 doc_id）；
   5. 建项目 `POST /book/create` 必须带项目空间 `itemId`（从 `/book/itemsets/search` 获取）。
-- **遗留**：项目内有一篇默认「空白文档」（doc_id=271），可人工删除或保留作为说明页。
+- **遗留**：~~项目内有一篇默认「空白文档」~~ 已删除（见 V7）。
+
+## V7 发布链路修订（2026-09-16，用户反馈四项）
+
+- **问题与修复**：
+  1. **阅读页无内容**：只写 `markdown` 时阅读页（渲染 `content` HTML 字段）为空白；调用 `/book/{key}/release` 返回"已推送任务队列"但**部署站后台队列从不执行**（等待后 content 仍空）→ 修复：**客户端双写**——python-markdown 转 HTML，`markdown + html` 一起提交（MinDoc 网页编辑器即此行为）。修复后匿名阅读页正文可见（omarchy/梁文锋 等关键词命中）。
+  2. **空白文档**：为建项目时 MinDoc 自动创建的默认文档（非用户手动）→ 已删除（doc_id=271）。
+  3. **命名**：榜单不叫"月榜"，按具体日期命名（`GitHub 热门项目榜（2026-09-16）`）；采集脚本标题同步改为日期式。
+  4. **日期分组**：publish 支持 `--day`（默认今天）——自动建日期父节点（identify=`day-YYYYMMDD`），文档挂其下，父节点维护当日索引（链接清单）；新增 `--delete <identify>` 子命令。
+- **工具变更**：`mindoc_publish.py` write_content 双写 html；page_visible 匿名正文校验（带重试）；索引追加逻辑去重（标题只保留一个）。
+- **验证**：`http://gr_wiki.grt.sy/docs/ai-digest` 目录 = 2026-09-16（索引页，含两链接）+ 两份榜单，正文匿名可见 ✓。

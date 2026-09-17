@@ -1,4 +1,4 @@
-# GitHub 热门项目 Top 21（github-trending-monthly）
+# GitHub 热门项目榜（2026-09-16）
 
 - 生成时间：2026-09-16 19:28
 - 数据来源：GitHub Trending 页面解析（本期 star 增量排序）

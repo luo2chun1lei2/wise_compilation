@@ -20,6 +20,11 @@ from pathlib import Path
 
 import requests
 
+try:
+    import markdown as _md_mod
+except ImportError:
+    _md_mod = None
+
 ROOT = Path(__file__).resolve().parent.parent
 SECRET_PATH = ROOT / "ai" / "secret.md"
 DB_PATH = ROOT / "data" / "wise.db"
@@ -115,10 +120,18 @@ class MinDocClient:
         data = body.get("data") or {}
         return int(data.get("doc_id") or data.get("document_id") or 0)
 
-    def write_content(self, doc_id, markdown):
-        """写 markdown 内容（cover=yes 强制覆盖，ADR-0001）。"""
+    def write_content(self, doc_id, markdown_text):
+        """写内容：markdown + 客户端转换的 html 一起提交。
+
+        部署站的后台发布任务队列未执行（V7 实测），只写 markdown 阅读页会空白；
+        MinDoc 网页编辑器本就同时提交 html 字段，此处照做。
+        """
+        html = ""
+        if _md_mod is not None:
+            html = _md_mod.markdown(markdown_text, extensions=["tables", "fenced_code", "nl2br"])
         r = self.s.post("%s/api/%s/content/%d" % (self.base, self.book, doc_id),
-                        data={"markdown": markdown, "cover": "yes",
+                        data={"markdown": markdown_text, "html": html,
+                              "cover": "yes",
                               "version": 0, "markdown_theme": "theme__light"},
                         headers={"X-Requested-With": "XMLHttpRequest",
                                  "Referer": self.base + "/"}, timeout=60)
@@ -143,20 +156,58 @@ class MinDocClient:
                                  "Referer": self.base + "/"}, timeout=30)
         return r.json().get("errcode") == 0
 
+    def release_book(self):
+        """发布整本书：把 markdown 草稿转为阅读页可见的 HTML（不发布则页面无内容）。"""
+        r = self.s.post("%s/book/%s/release" % (self.base, self.book),
+                        data={"identify": self.book},
+                        headers={"X-Requested-With": "XMLHttpRequest",
+                                 "Referer": self.base + "/"}, timeout=120)
+        try:
+            body = r.json()
+            if body.get("errcode") != 0:
+                raise RuntimeError("release 失败：%s" % json.dumps(body, ensure_ascii=False)[:120])
+        except ValueError:
+            pass  # 部分版本返回页面而非 JSON，视为成功，稍后以阅读页验证
+        return True
+
+    def page_visible(self, doc_identify, expect_text, tries=3):
+        """匿名读阅读页，确认发布后的内容可见（刚写入有短暂延迟，重试）。"""
+        import time as _t
+        for i in range(tries):
+            r = requests.get("%s/docs/%s/%s" % (self.base, self.book, doc_identify),
+                             timeout=30)
+            if r.status_code == 200 and expect_text in r.text:
+                return True
+            _t.sleep(3)
+        return False
+
     # ---------- 发布（幂等，design.md §4） ----------
 
-    def publish(self, doc_name, doc_identify, markdown, retries=2):
+    def find_doc(self, doc_identify):
+        for did, idfy, _t in self.doc_tree():
+            if idfy == doc_identify:
+                return did
+        return None
+
+    def publish(self, doc_name, doc_identify, markdown, day=None, retries=2):
+        """幂等发布；指定 day（如 2026-09-16）时挂到日期父节点并更新当日索引。"""
+        self.ensure_login()
+        parent_id = 0
+        if day:
+            parent_identify = "day-" + day.replace("-", "")
+            parent_id = self.find_doc(parent_identify)
+            if parent_id is None:
+                parent_id = self.create_doc(day, parent_identify)
+                print("  新建日期分组 %s → doc_id=%s" % (day, parent_id))
+            else:
+                print("  日期分组 %s 已存在 doc_id=%s" % (day, parent_id))
         for attempt in range(retries + 1):
             try:
                 self.ensure_login()
                 time.sleep(FETCH_INTERVAL)
-                doc_id = None
-                for did, idfy, _title in self.doc_tree():
-                    if idfy == doc_identify:
-                        doc_id = did
-                        break
+                doc_id = self.find_doc(doc_identify)
                 if doc_id is None:
-                    doc_id = self.create_doc(doc_name, doc_identify)
+                    doc_id = self.create_doc(doc_name, doc_identify, parent_id=parent_id)
                     print("  新建文档 %s → doc_id=%s" % (doc_name, doc_id))
                 else:
                     print("  已存在（identify=%s）doc_id=%s，覆盖更新" % (doc_identify, doc_id))
@@ -164,6 +215,18 @@ class MinDocClient:
                 self.write_content(doc_id, markdown)
                 back = self.read_content(doc_id)
                 ok = markdown[:80].strip() in back
+                # 维护日期分组的索引页（追加当日文档链接，标题只留一个）
+                if day and parent_id:
+                    time.sleep(FETCH_INTERVAL)
+                    idx = self.read_content(parent_id)
+                    link = "- [%s](/docs/%s/%s)" % (doc_name, self.book, doc_identify)
+                    if link not in idx:
+                        header = "# %s 采集清单" % day
+                        if header in idx:
+                            idx = idx.rstrip() + "\n" + link
+                        else:
+                            idx = ("%s\n\n%s\n\n%s" % (idx, header, link)).strip()
+                        self.write_content(parent_id, idx)
                 return {"doc_id": doc_id, "verified": ok}
             except Exception as exc:
                 print("  [warn] publish 尝试 %d：%s" % (attempt + 1, exc), file=sys.stderr)
@@ -187,12 +250,24 @@ def main():
     ap.add_argument("--file", help="要发布的 markdown 文件")
     ap.add_argument("--name", help="文档标题（默认取文件首行 # 标题）")
     ap.add_argument("--identify", help="doc_identify（小写字母开头）")
+    ap.add_argument("--day", default=datetime.now().strftime("%Y-%m-%d"),
+                    help="日期分组（默认今天；传入空串则不分组）")
+    ap.add_argument("--delete", help="按 doc_identify 删除文档")
     args = ap.parse_args()
 
     sec = load_secret()
     cli = MinDocClient(sec["WIKI_URL"], sec["WIKI_BOOK_IDENTIFY"],
                        sec["WIKI_ACCOUNT"], sec["WIKI_PASSWORD"])
     started = time.time()
+
+    if args.delete:
+        cli.ensure_login()
+        did = cli.find_doc(args.delete)
+        if did and cli.delete_doc(did):
+            print("[删除] %s（doc_id=%s）OK" % (args.delete, did))
+        else:
+            print("[删除] 未找到或失败：%s" % args.delete)
+        return
 
     if args.selftest:
         print("[自测] 登录 → 建临时文档 → 写内容 → 读回 → 删除")
@@ -218,12 +293,17 @@ def main():
     if not re.match(r"^[a-z]", identify):
         identify = "d-" + identify
 
-    print("[发布] %s → %s（identify=%s）" % (args.file, name, identify))
-    result = cli.publish(name, identify, md)
+    print("[发布] %s → %s（identify=%s，分组=%s）" % (args.file, name, identify, args.day or "无"))
+    result = cli.publish(name, identify, md, day=args.day or None)
+    cli.release_book()
+    # 用正文标记校验阅读页（标题会出现在 <title>，不能证明正文渲染）
+    body_marker = "生成时间" if "生成时间" in md else name.split("（")[0][:12]
+    visible = cli.page_visible(identify, body_marker)
     log_run("mindoc-publish", "ok" if result["verified"] else "verify-failed",
-            {"doc": name, "identify": identify, **result,
-             "elapsed": round(time.time() - started)})
-    print("  完成：doc_id=%s 读回校验=%s" % (result["doc_id"], "通过" if result["verified"] else "失败"))
+            {"doc": name, "identify": identify, **result, "released": True,
+             "page_visible": visible, "elapsed": round(time.time() - started)})
+    print("  完成：doc_id=%s 读回校验=%s 阅读页正文可见=%s"
+          % (result["doc_id"], "通过" if result["verified"] else "失败", "是" if visible else "否"))
 
 
 if __name__ == "__main__":
