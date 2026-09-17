@@ -81,18 +81,25 @@ def main():
         conn = sqlite3.connect(str(DB_PATH))
         rows = conn.execute(
             "SELECT stats FROM runs WHERE kind='mindoc-publish' AND status='ok' "
-            "AND finished_at LIKE ? ORDER BY id", (args.digest_day + "%",)).fetchall()
+            "ORDER BY id").fetchall()
         conn.close()
-        lines, n = [], 0
+        prefix = "digest-" + args.digest_day.replace("-", "")
+        docs = {}
         for (s,) in rows:
             try:
                 d = json.loads(s)
             except ValueError:
                 continue
-            if d.get("identify", "").startswith("day-"):
+            idfy = d.get("identify", "")
+            if idfy.startswith("digest-"):
+                docs[idfy] = d  # 同 identify 重复发布取最新
+        lines, n = [], 0
+        for idfy in sorted(docs):
+            d = docs[idfy]
+            if not idfy.startswith(prefix):
                 continue
             n += 1
-            lines.append("%d. [%s](%s/docs/%s/%s)" % (n, d["doc"], base, book, d["identify"]))
+            lines.append("%d. [%s](%s/docs/%s/%s)" % (n, d["doc"], base, book, idfy))
         if n == 0:
             print("当日无发布记录")
             return

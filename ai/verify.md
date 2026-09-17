@@ -95,3 +95,15 @@
   4. **日期分组**：publish 支持 `--day`（默认今天）——自动建日期父节点（identify=`day-YYYYMMDD`），文档挂其下，父节点维护当日索引（链接清单）；新增 `--delete <identify>` 子命令。
 - **工具变更**：`mindoc_publish.py` write_content 双写 html；page_visible 匿名正文校验（带重试）；索引追加逻辑去重（标题只保留一个）。
 - **验证**：`http://gr_wiki.grt.sy/docs/ai-digest` 目录 = 2026-09-16（索引页，含两链接）+ 两份榜单，正文匿名可见 ✓。
+
+## V8 邮件通知通道（2026-09-18，ADR-0018）
+
+- **目的**：验证公司邮箱 SMTP 通知链路（内部信息允许的通道）。
+- **配置来源**：SMTP 参数从本机 Thunderbird `prefs.js` 提取（smtp.mxhichina.com:465 SSL，阿里云企业邮箱）；密码由用户填入 secret.md；SSL 连通性实测（220 AliMail 横幅）。
+- **命令与结果**：✅
+  - `email_notify.py --test` → 测试邮件送达（1 收件人）；
+  - `email_notify.py --digest-day 2026-09-16` → 当日 2 篇文档汇总邮件送达（标题+gr_wiki 链接+当日目录）。
+- **修复的两个问题**：
+  1. secret 行内中文注释被解析进收件人地址（RCPT 报 Unicode 错）→ load_secret 剥离行内注释；
+  2. `--digest-day` 原按 runs.finished_at 过滤（发布动作时间 ≠ 汇总日）→ 改为按文档 identify 前缀 `digest-YYYYMMDD-*` 筛选并按 identify 去重（同名重复发布取最新）；wxpusher_notify.py 同步修复。
+- **通道状态**：channels.yaml `email-colleagues` 已启用；收件人暂为用户本人，待收集同事地址后追加。
