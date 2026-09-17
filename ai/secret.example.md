@@ -15,6 +15,10 @@
 - FEISHU_WEBHOOK:
 - FEISHU_SECRET:
 
+## 企业微信群机器人
+
+- WECOM_WEBHOOK:
+
 ## LLM API
 
 - LLM_BASE_URL:

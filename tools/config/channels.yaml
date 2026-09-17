@@ -7,7 +7,13 @@ channels:
     mode: full                 # full=全文写入 | card=摘要卡片+链接
     enabled: true
 
-  # 后续按同样格式追加（均为延后状态）：
+  - name: wecom-group
+    type: wecom                # 企业微信群机器人（ADR-0016）；webhook 在 ai/secret.md 的 WECOM_WEBHOOK
+    target: ai-digest-group
+    mode: card                 # card=markdown 摘要+文档链接
+    enabled: false             # 拿到 webhook 后改 true
+
+  # 后续按同样格式追加：
   # - name: team-feishu
   #   type: feishu             # webhook 地址；secret 在 ai/secret.md
   #   target: https://open.feishu.cn/open-apis/bot/v2/hook/xxx
