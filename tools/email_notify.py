@@ -23,7 +23,10 @@ import sys
 from email.header import Header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape as _esc
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SECRET_PATH = ROOT / "ai" / "secret.md"
@@ -45,7 +48,19 @@ def load_secret():
     return kv
 
 
-def send_mail(sec, subject, md_content):
+def build_mime(subject, text_body, html_body=None):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg.attach(MIMEText(text_body, "plain", "utf-8"))
+    html = html_body
+    if html is None and _md_mod is not None:
+        html = _md_mod.markdown(text_body, extensions=["tables", "fenced_code"])
+    if html:
+        msg.attach(MIMEText(html, "html", "utf-8"))
+    return msg
+
+
+def send_mail(sec, subject, md_content, html_body=None):
     host = sec.get("EMAIL_SMTP_HOST", "")
     if not host:
         print("未配置 EMAIL_SMTP_HOST（ai/secret.md）。发件服务器地址可从邮件客户端设置或 IT 获取。")
@@ -59,14 +74,9 @@ def send_mail(sec, subject, md_content):
         print("未配置 EMAIL_FROM / EMAIL_TO")
         sys.exit(2)
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = Header(subject, "utf-8")
+    msg = build_mime(subject, md_content, html_body)
     msg["From"] = sender
     msg["To"] = ", ".join(to_list)
-    msg.attach(MIMEText(md_content, "plain", "utf-8"))
-    if _md_mod is not None:
-        msg.attach(MIMEText(_md_mod.markdown(md_content, extensions=["tables", "fenced_code"]),
-                            "html", "utf-8"))
 
     if use_ssl:
         srv = smtplib.SMTP_SSL(host, port, timeout=30)
@@ -106,35 +116,65 @@ def main():
                       "**新文档**：[%s](%s)\n\n> 内网地址，需公司网络/VPN 打开" % (title, url))
         print("通知已发送给 %d 个收件人" % n)
     elif args.digest_day:
-        conn = sqlite3.connect(str(DB_PATH))
-        rows = conn.execute(
-            "SELECT stats FROM runs WHERE kind='mindoc-publish' AND status='ok' "
-            "ORDER BY id").fetchall()
-        conn.close()
-        prefix = "digest-" + args.digest_day.replace("-", "")
-        docs = {}
-        for (s,) in rows:
-            try:
-                d = json.loads(s)
-            except ValueError:
-                continue
-            idfy = d.get("identify", "")
-            if idfy.startswith("digest-"):
-                docs[idfy] = d  # 同 identify 重复发布取最新
-        lines, n = [], 0
-        for idfy in sorted(docs):
-            d = docs[idfy]
-            if not idfy.startswith(prefix):
-                continue
-            n += 1
-            lines.append("%d. [%s](%s/docs/%s/%s)" % (n, d["doc"], base, book, idfy))
-        if n == 0:
-            print("当日无发布记录")
+        # 全文邮件：内嵌当日各源成果，顶部目录锚点导航（用户要求 #41，wiki 内网外不可达）
+        result_dir = ROOT / "result" / args.digest_day
+        if not result_dir.exists():
+            print("当日无成果目录：%s" % result_dir)
             return
-        body = "**%s 更新（%d 篇）**\n\n%s\n\n---\n[当日目录](%s/docs/%s)\n> 内网地址，需公司网络/VPN 打开" % (
-            args.digest_day, n, "\n".join(lines), base, book)
-        sent = send_mail(sec, "【AI 资讯汇编】%s 更新（%d 篇）" % (args.digest_day, n), body)
-        print("已向 %d 个收件人通知 %d 篇新文档" % (sent, n))
+        try:
+            order = [s.get("name") for s in (yaml.safe_load(
+                (ROOT / "config" / "sources.yaml").read_text(encoding="utf-8")) or {}
+            ).get("sources") or []]
+        except Exception:
+            order = []
+        files = sorted(result_dir.glob("*.md"),
+                       key=lambda f: (order.index(f.stem) if f.stem in order else 99, f.name))
+        if not files:
+            print("当日无成果文件")
+            return
+
+        base = sec.get("WIKI_URL", "").rstrip("/")
+        book = sec.get("WIKI_BOOK_IDENTIFY", "")
+        text_parts = ["AI 资讯汇编 · %s 更新（%d 个源）" % (args.digest_day, len(files)),
+                      "wiki 当日目录：%s/docs/%s（内网）" % (base, book), ""]
+        toc_html, sections_html = [], []
+        for i, f in enumerate(files, 1):
+            md = f.read_text(encoding="utf-8")
+            lines = md.splitlines()
+            title = next((l[2:].strip() for l in lines if l.startswith("# ")), f.stem)
+            body_md = "\n".join(lines[1:]).lstrip("\n")
+            n_rows = len(re.findall(r"^### ", body_md, re.M)) or len(
+                re.findall(r"^\| \d+ ", body_md, re.M))
+            toc_html.append('<li><a href="#sec%d">%s</a>（%d 条）</li>' % (i, _esc(title), n_rows))
+            text_parts += ["=" * 46, "%d. %s（%d 条）" % (i, title, n_rows), "=" * 46, body_md]
+            body_html = ""
+            if _md_mod is not None:
+                body_html = _md_mod.markdown(body_md, extensions=["tables", "fenced_code"])
+                # 邮件客户端吃内联样式：表格加边框
+                body_html = body_html.replace(
+                    "<table>", '<table border="1" cellpadding="5" cellspacing="0" '
+                               'style="border-collapse:collapse;border-color:#bbb;">')
+            sections_html.append(
+                '<h2 id="sec%d" style="border-bottom:2px solid #4a90d9;padding-bottom:4px;">'
+                '%d. %s <small style="color:#888;">（%d 条）</small></h2>%s'
+                '<p style="font-size:12px;"><a href="#toc">↑ 返回目录</a></p>'
+                % (i, i, _esc(title), n_rows, body_html))
+
+        html_body = (
+            '<html><body><div style="font-family:-apple-system,\'Microsoft YaHei\',sans-serif;'
+            'max-width:960px;margin:0 auto;color:#333;">'
+            '<h1 style="color:#2a5db0;">AI 资讯汇编 · %s 更新（%d 个源）</h1>'
+            '<p style="color:#888;font-size:13px;">完整 wiki 版本（内网）：<a href="%s/docs/%s">%s/docs/%s</a></p>'
+            '<h2 id="toc" style="background:#f0f4fa;padding:8px 12px;">📋 目录（点击跳转）</h2>'
+            '<ol style="line-height:1.9;">%s</ol><hr/>%s'
+            '</div></body></html>'
+        ) % (args.digest_day, len(files), base, book, base, book,
+             "".join(toc_html), "".join(sections_html))
+        text_body = "\n\n".join(text_parts)
+        sent = send_mail(sec, "【AI 资讯汇编】%s 更新（%d 个源）" % (args.digest_day, len(files)),
+                          text_body, html_body=html_body)
+        print("已向 %d 个收件人发送全文汇总邮件：%d 个源，HTML %.0fKB"
+              % (sent, len(files), len(html_body) / 1024.0))
 
 
 if __name__ == "__main__":
