@@ -877,6 +877,20 @@ def main():
     out = day_dir / ("%s.md" % stem)
     print("[5/5] 生成 %s" % out)
     render_md(entries, args.query, out, STATS, elapsed, label)
+    # 运行记录入库（run_pipeline 汇总用，要求 #53）
+    try:
+        conn = init_db()
+        conn.execute("INSERT INTO runs(kind,started_at,finished_at,status,stats) "
+                     "VALUES(?,?,?,?,?)",
+                     ("collect-" + (label or "adhoc"),
+                      datetime.fromtimestamp(started).strftime("%Y-%m-%d %H:%M:%S"),
+                      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                      "ok", json.dumps(dict(STATS, elapsed=round(elapsed),
+                                            items=len(entries)), ensure_ascii=False)))
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        print("  [warn] runs 记录失败：%s" % exc, file=sys.stderr)
 
 
 if __name__ == "__main__":

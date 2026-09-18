@@ -10,7 +10,9 @@
   python3 tools/run_pipeline.py --no-notify   # 跳过邮件通知
 """
 import argparse
+import json
 import re
+import sqlite3
 import subprocess
 import sys
 import time
@@ -116,7 +118,45 @@ def main():
         ("跳过" if notify_ok is None else ("OK" if notify_ok else "FAIL")),
         elapsed, log_path))
     w("=" * 60)
+    record_verify(day_str, collect_ok, len(sources), publish_ok,
+                  notify_ok, elapsed, started)
     sys.exit(0 if collect_ok > 0 else 1)
+
+
+def record_verify(day_str, collect_ok, total, publish_ok, notify_ok, elapsed, started_ts):
+    """在 ai/verify.md 追加一行运行记录（要求 #53：耗时≈分钟、token≈万）。"""
+    import sqlite3
+    tokens = calls = 0
+    try:
+        from datetime import datetime as _dt
+        started_iso = _dt.fromtimestamp(started_ts).strftime("%Y-%m-%d %H:%M:%S")
+        conn = sqlite3.connect(str(ROOT / "data" / "wise.db"))
+        # 只统计本次流水线开始之后的采集记录（避免同日多次运行重复计数）
+        for (s,) in conn.execute(
+                "SELECT stats FROM runs WHERE kind LIKE 'collect-%' "
+                "AND finished_at >= ? AND status='ok'", (started_iso,)):
+            try:
+                d = json.loads(s)
+            except ValueError:
+                continue
+            tokens += d.get("total_tokens") or 0
+            calls += d.get("llm_calls") or 0
+        conn.close()
+    except Exception:
+        pass
+    vpath = ROOT / "ai" / "verify.md"
+    row = "| %s | 采集 %d/%d · 发布 %d · 通知 %s | ~%d 分钟 | %d 次调用 · ~%.1f 万 tokens |" % (
+        day_str, collect_ok, total, publish_ok,
+        ("跳过" if notify_ok is None else ("OK" if notify_ok else "FAIL")),
+        round(elapsed / 60.0), calls, tokens / 10000.0)
+    header = ("\n## 运行记录（run_pipeline 自动追加，要求 #53）\n\n"
+              "| 日期 | 结果 | 耗时 | LLM 用量 |\n|---|---|---|---|\n")
+    text = vpath.read_text(encoding="utf-8") if vpath.exists() else ""
+    if "## 运行记录" in text:
+        text = text.rstrip("\n") + "\n" + row + "\n"
+    else:
+        text = text.rstrip("\n") + "\n" + header + row + "\n"
+    vpath.write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":
