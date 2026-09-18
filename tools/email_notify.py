@@ -160,7 +160,8 @@ def main():
         base = sec.get("WIKI_URL", "").rstrip("/")
         book = sec.get("WIKI_BOOK_IDENTIFY", "")
         text_parts = ["AI 资讯汇编 · %s 更新（%d 个源）" % (args.digest_day, len(files)),
-                      "wiki 当日目录：%s/docs/%s（内网）" % (base, book), ""]
+                      "wiki 当日目录：%s/docs/%s/day-%s（内网）" % (
+                          base, book, args.digest_day.replace("-", "")), ""]
         toc_html, sections_html = [], []
         for i, f in enumerate(files, 1):
             md = f.read_text(encoding="utf-8")
@@ -191,15 +192,16 @@ def main():
                 '</details>'
                 % (i, i, _esc(title), n_rows, body_html))
 
+        day_url = "%s/docs/%s/day-%s" % (base, book, args.digest_day.replace("-", ""))
         html_body = (
             '<html><body><div style="font-family:-apple-system,\'Microsoft YaHei\',sans-serif;'
             'max-width:960px;margin:0 auto;color:#333;">'
             '<h1 style="color:#2a5db0;">AI 资讯汇编 · %s 更新（%d 个源）</h1>'
-            '<p style="color:#888;font-size:13px;">完整 wiki 版本（内网）：<a href="%s/docs/%s">%s/docs/%s</a></p>'
+            '<p style="color:#888;font-size:13px;">完整 wiki 版本（内网）：<a href="%s">%s</a></p>'
             '<h2 id="toc" style="background:#f0f4fa;padding:8px 12px;">📋 目录（点击跳转；各节点击标题展开）</h2>'
             '<ol style="line-height:1.9;">%s</ol><hr/>%s'
             '</div></body></html>'
-        ) % (args.digest_day, len(files), base, book, base, book,
+        ) % (args.digest_day, len(files), day_url, day_url,
              "".join(toc_html), "".join(sections_html))
         text_body = "\n\n".join(text_parts)
         sent = send_mail(sec, "【AI 资讯汇编】%s 更新（%d 个源）" % (args.digest_day, len(files)),
