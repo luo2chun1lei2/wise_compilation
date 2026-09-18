@@ -42,7 +42,8 @@ FETCH_INTERVAL = 1.0         # 对 github.com 的请求间隔（ADR-0006 礼貌�
 DEFAULT_QUERY = "topic:artificial-intelligence stars:>500 pushed:>{week}"
 
 # 运行统计（成本项）：token 数来自 GLM 响应的 usage 字段，精确值
-STATS = {"gh_api": 0, "zhihu_api": 0, "csdn_api": 0, "rss_api": 0, "llm_calls": 0, "prompt_tokens": 0,
+STATS = {"gh_api": 0, "zhihu_api": 0, "csdn_api": 0, "rss_api": 0, "hn_api": 0,
+         "llm_calls": 0, "prompt_tokens": 0,
          "completion_tokens": 0, "total_tokens": 0}
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
@@ -175,8 +176,46 @@ def fetch_rss(url, limit):
             "pushed_at": published,
             "zhihu_meta": None,
             "rss_meta": {"feed": True, "feed_title": feed_title},
+            "en_article": True,
             "no_readme": True,
         })
+    return repos
+
+
+def fetch_hn(limit):
+    """Hacker News 热点榜（type: hn，ADR-0020 排名语义：front_page 按 points 排序）。
+
+    官方 Algolia API，无需凭据；条目自带 points/评论数。
+    """
+    r = requests.get("https://hn.algolia.com/api/v1/search",
+                     params={"tags": "front_page", "hitsPerPage": limit},
+                     headers={"User-Agent": UA}, timeout=30)
+    r.raise_for_status()
+    STATS["hn_api"] += 1
+    repos = []
+    for h in r.json().get("hits", []):
+        title = (h.get("title") or "").strip()
+        if not title:
+            continue
+        url = (h.get("url") or "https://news.ycombinator.com/item?id=%s"
+               % h.get("objectID", "")).strip()
+        desc = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ",
+                                          h.get("story_text") or "")).strip()
+        repos.append({
+            "full_name": title,
+            "html_url": url,
+            "description": desc,
+            "stargazers_count": h.get("points") or 0,
+            "language": None,
+            "topics": [],
+            "pushed_at": (h.get("created_at") or "")[:19],
+            "zhihu_meta": {"voteup": h.get("points") or 0,
+                           "comments": h.get("num_comments") or 0,
+                           "column": "Hacker News"},
+            "en_article": True,
+            "no_readme": True,
+        })
+    repos.sort(key=lambda x: x["zhihu_meta"]["voteup"], reverse=True)
     return repos
 
 
@@ -415,6 +454,57 @@ def translate(text, secret):
     return text, "translate-failed"
 
 
+def translate_article(title, summary, secret):
+    """英文文章源（RSS/HN）：标题+摘要合并一次调用翻译（ADR-0010「标题始终翻译」，不增调用数）。
+
+    返回 (title_zh, summary_zh, lang)；解析失败时回退为仅译摘要、标题保留原文。
+    """
+    if cjk_ratio(title) > 0.25 and (not summary or cjk_ratio(summary) > 0.25):
+        return title, summary, "zh-skip"
+    if len((title + (summary or "")).encode("utf-8")) > MAX_TRANSLATE_BYTES:
+        zh, lang = translate(summary, secret)
+        return title, zh, lang + "|超限保原文"
+    base = secret.get("LLM_BASE_URL", "").rstrip("/")
+    key, model = secret.get("LLM_API_KEY"), secret.get("LLM_MODEL")
+    if not (base and key and model):
+        return title, summary, "no-llm-config"
+    payload = {
+        "model": model, "temperature": 0.2, "max_tokens": 4000,
+        "messages": [
+            {"role": "system", "content": "你是技术翻译引擎，把英文资讯译成简体中文，保留专有名词。"
+                                           "严格按格式：第一行只输出标题译文；第二行只输出===；之后输出摘要译文。"},
+            {"role": "user", "content": "标题：%s\n\n摘要：%s" % (title, summary or "（无）")},
+        ],
+    }
+    for attempt in (1, 2):
+        try:
+            r = requests.post(base + "/chat/completions",
+                              headers={"Authorization": "Bearer " + key,
+                                       "Content-Type": "application/json"},
+                              json=payload, timeout=120)
+            r.raise_for_status()
+            body = r.json()
+            out = body["choices"][0]["message"].get("content", "").strip()
+            usage = body.get("usage") or {}
+            STATS["llm_calls"] += 1
+            STATS["prompt_tokens"] += usage.get("prompt_tokens", 0)
+            STATS["completion_tokens"] += usage.get("completion_tokens", 0)
+            STATS["total_tokens"] += usage.get("total_tokens", 0)
+            parts = out.split("===")
+            if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+                t_zh = re.sub(r"^标题[：:]\s*", "", parts[0]).strip()
+                s_zh = re.sub(r"^摘要[：:]\s*", "", parts[1]).strip()
+                if s_zh in ("（无）", "(无)", "无"):
+                    s_zh = ""
+                if t_zh:
+                    return t_zh, s_zh or summary, "llm"
+        except Exception as exc:
+            print("  [warn] llm-article attempt%d: %s" % (attempt, exc), file=sys.stderr)
+            time.sleep(3)
+    zh, lang = translate(summary, secret)   # 回退：仅摘要
+    return title, zh, lang + "|title-keep"
+
+
 # ---------- 步骤 4：存库 ----------
 
 def init_db():
@@ -466,8 +556,11 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     is_zhihu = bool(entries) and all("heat" in e["meta"] for e in entries)
     day = date.today().strftime("%Y-%m-%d")
     is_csdn = "csdn.net" in query
+    is_hn = "hn.algolia" in query
     is_feed = bool(entries) and all(e["meta"].get("feed") for e in entries)
-    if is_feed:
+    if is_hn:
+        title = "Hacker News 热点榜（%s）" % day
+    elif is_feed:
         feed_title = (entries[0]["meta"].get("feed_title") or "RSS 资讯")[:20]
         title = "%s（%s）" % (feed_title, day)
     elif is_zhihu_col:
@@ -478,7 +571,9 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         title = "GitHub 热门项目（%s · %s）" % (label, day)
     else:
         title = "GitHub AI 热门项目榜（%s）" % day
-    if is_feed:
+    if is_hn:
+        data_src = "Hacker News 官方 Algolia API（front_page，按 points 排名）"
+    elif is_feed:
         data_src = "RSS 订阅（%s，最新 N 条）" % query.replace("RSS：", "")[:60]
     elif is_zhihu_col:
         data_src = ("CSDN 搜索接口（so.csdn.net/api/v3，时间窗过滤）" if is_csdn
@@ -499,7 +594,7 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     has_delta = any(e["meta"].get("period_delta") for e in entries)
 
     def disp_title(e):
-        t = e["title"]
+        t = e.get("title_disp") or e["title"]
         return t if len(t) <= 36 else t[:35] + "…"
 
     if is_feed:
@@ -555,7 +650,7 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
             metric = e["meta"].get("heat") or "-"
         else:
             metric = "%s★" % format(e["stars"], ",")
-        lines += ["### %d. %s（%s）" % (i, e["title"], metric), ""]
+        lines += ["### %d. %s（%s）" % (i, e.get("title_disp") or e["title"], metric), ""]
         lines.append("- 链接：%s" % e["url"])
         lines.append("- 主题：%s" % ", ".join(e["meta"].get("topics", [])[:8]))
         lines.append("- 最近推送：%s" % (e["published_at"][:10] or "—"))
@@ -578,6 +673,8 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         lines.append("| CSDN API 调用 | %d 次（无需登录） | 计数 |" % stats["csdn_api"])
     if stats.get("rss_api"):
         lines.append("| RSS 抓取 | %d 次 | 计数 |" % stats["rss_api"])
+    if stats.get("hn_api"):
+        lines.append("| HN API 调用 | %d 次（官方 Algolia） | 计数 |" % stats["hn_api"])
     lines += [
               "| 总耗时（获取→生成） | %.0f 秒 | 计时，统计系统占用时间 |" % elapsed, ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
@@ -597,6 +694,7 @@ def main():
     zhihu_cfg = None
     csdn_cfg = None
     rss_cfg = None
+    hn_cfg = None
     if args.source:
         entry = load_source_entry(args.source)
         label = args.source
@@ -621,12 +719,18 @@ def main():
         elif stype == "rss":
             rss_cfg = entry
             args.query = "RSS：%s" % entry.get("url", "")
+        elif stype == "hn":
+            hn_cfg = entry
+            args.query = "hn.algolia.com front_page（points 热点排名）"
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    if rss_cfg is not None:
+    if hn_cfg is not None:
+        print("[1/5] Hacker News front_page（取 %s 条，按 points 排序）" % hn_cfg.get("limit", 10))
+        repos = fetch_hn(int(hn_cfg.get("limit") or 10))
+    elif rss_cfg is not None:
         print("[1/5] RSS：%s（最新 %s 条）" % (rss_cfg.get("url"), rss_cfg.get("limit", 10)))
         repos = fetch_rss(rss_cfg.get("url") or "",
                           int(rss_cfg.get("limit") or 10))
@@ -663,8 +767,11 @@ def main():
     for idx, repo in enumerate(repos, 1):
         print("[2/5][3/5] #%d %s" % (idx, repo["full_name"]))
         summary, src_from = summary_cascade(repo, token)
+        title_disp = repo["full_name"]
         if args.skip_translate:
             summary_zh, lang = summary, "zh-skip(--skip-translate)"
+        elif repo.get("en_article"):
+            title_disp, summary_zh, lang = translate_article(repo["full_name"], summary, secret)
         else:
             summary_zh, lang = translate(summary, secret)
         meta = {"language": repo.get("language"),
@@ -674,6 +781,7 @@ def main():
         meta.update(repo.get("rss_meta") or {})
         entries.append({
             "url_norm": repo["html_url"], "title": repo["full_name"],
+            "title_disp": title_disp,
             "url": repo["html_url"], "summary": summary, "summary_zh": summary_zh,
             "summary_from": src_from, "lang": lang, "stars": repo["stargazers_count"],
             "published_at": (repo.get("pushed_at") or "")[:19],

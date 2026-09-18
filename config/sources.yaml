@@ -3,6 +3,62 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
+  # ---- 国外精选（T2 国外实测 2026-09-18，首批 7+1；英文源走合并翻译）----
+  - name: openai-news
+    type: rss
+    url: https://openai.com/news/rss.xml
+    limit: 10
+    topic: tech
+    enabled: true
+
+  - name: deepmind-blog
+    type: rss
+    url: https://deepmind.google/blog/rss.xml
+    limit: 10
+    topic: tech
+    enabled: true
+
+  - name: techcrunch-ai
+    type: rss
+    url: https://techcrunch.com/category/artificial-intelligence/feed/
+    limit: 10
+    topic: news
+    enabled: true
+
+  - name: latent-space
+    type: rss
+    url: https://www.latent.space/feed
+    limit: 10
+    topic: tech
+    enabled: true
+
+  - name: simon-willison
+    type: rss
+    url: https://simonwillison.net/atom/everything/
+    limit: 10
+    topic: tech
+    enabled: true
+
+  - name: tldr-ai
+    type: rss
+    url: https://tldr.tech/api/rss/ai
+    limit: 10
+    topic: news
+    enabled: true
+
+  - name: interconnects
+    type: rss
+    url: https://www.interconnects.ai/feed
+    limit: 10
+    topic: tech
+    enabled: true
+
+  - name: hackernews-top
+    type: hn                  # 官方 Algolia API，front_page 按 points 热点排名（ADR-0020 排名语义）
+    limit: 10
+    topic: tech
+    enabled: true
+
   # ---- RSS（ADR-0020 准入：正规订阅源；feed 自带最新 N 条）----
   - name: qbitai-rss
     type: rss

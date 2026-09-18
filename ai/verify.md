@@ -152,3 +152,10 @@
 - **结论**：rss 类型就绪——T2 清单中所有"RSS 可用"的源（含未来的国外源）自此均可一条配置接入。
 
 - **补充（2026-09-18 晚）**：新增 5 个国内大模型厂商 GitHub 源（deepseek-ai/zai-org/MoonshotAI/bytedance/Tencent-Hunyuan，`user:<org> pushed:>now-30d`）全部试跑通过（8/4/6/10/7 条）；DeepSeek/智谱/Kimi/腾讯产出干净，bytedance 混有非 AI 仓库（sonic、xgplayer 等）——已列入 task.md 后续计划的有用性评价项。启用源增至 14 个。
+
+## V13 国外首批源接入（2026-09-18）
+
+- **目的**：接入 T2 国外实测通过的"首批 7+1"。
+- **结果**：✅ 8 源全部试跑通过（各 10 条）：openai-news / deepmind-blog / techcrunch-ai / latent-space / simon-willison / tldr-ai / interconnects（RSS）+ hackernews-top（新 `type: hn` 适配器，Algolia front_page 按 points 排名=ADR-0020 排名语义）。
+- **英文合并翻译**：RSS/HN 条目标题+摘要合并一次 LLM 调用（不增调用量，落实 ADR-0010"标题始终翻译"）；实测 OpenAI 榜中文标题+摘要俱佳；修复"标题：/摘要："前缀回显与（无）占位。
+- **启用源达 22 个**；明早邮件目录 22 节。LLM 用量预估：英文源 +80 条/天 ≈ 10~15 万 token/天（包月内）。

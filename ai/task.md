@@ -11,6 +11,7 @@
 | 2026-09-17 | MinDoc 发布链路 + 邮件通知 + 一键流水线 + cron（V6-V10） | verify.md |
 | 2026-09-18 | 邮件全文/折叠/反垃圾修复（V11）；RSS 适配器 + 量子位 + Qwen（V12） | verify.md |
 | 2026-09-18 | 国内大模型厂商源接入（DeepSeek/智谱/Kimi/字节/腾讯，共 14 源） | sources.yaml |
+| 2026-09-18 | 国外首批源接入（7 RSS + Hacker News，共 22 源） | verify.md V13 |
 
 ## 后续计划
 
