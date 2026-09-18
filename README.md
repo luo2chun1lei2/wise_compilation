@@ -75,7 +75,7 @@ python3 tools/schedule.py --remove            # 移除定时
 | `topics.yaml` | 专题定义与归类关键词 | 加专题/关键词 |
 | `settings.yaml` | 运行参数 | 并发、LLM 限速、翻译字节上限（默认 5000B）、润色开关 |
 
-**当前启用的源（26 个）**：国外 11 个（OpenAI News RSS、OpenAI Research 与 Anthropic Research/Engineering（sitemap）、DeepMind/TechCrunch AI/Latent Space/Simon Willison/TLDR AI/Interconnects/Import AI 的 RSS、Hacker News 热点榜；Import AI 走 VPN 代理，源配置 `proxy: true` 即可）；量子位 RSS；厂商 GitHub×6（Qwen/DeepSeek/智谱/Kimi/字节/腾讯混元）；GitHub Trending 与 4 个 topic 榜；知乎专栏（机器之心等）；CSDN 近 3 天。英文源标题+摘要自动合并翻译（一次调用）。
+**当前启用的源（28 个）**：国外 13 个（OpenAI News RSS、OpenAI Research 与 Anthropic Research/Engineering（sitemap）、DeepMind/**Google Research 博客**/**blog.google AI**/TechCrunch AI/Latent Space/Simon Willison/TLDR AI/Interconnects/Import AI 的 RSS、Hacker News 热点榜；Google 系与 substack 走 VPN 代理，源配置 `proxy: true` 即可）；量子位 RSS；厂商 GitHub×6（Qwen/DeepSeek/智谱/Kimi/字节/腾讯混元）；GitHub Trending 与 4 个 topic 榜；知乎专栏（机器之心等）；CSDN 近 3 天。英文源标题+摘要自动合并翻译（一次调用）。
 
 ## 目录结构
 
