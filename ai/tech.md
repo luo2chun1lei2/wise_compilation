@@ -236,6 +236,22 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 **成本注记**：国外源为英文 → 每条摘要走 LLM 翻译（≤5000B）。全量接入约 +100 条/天 ≈ 15~20 万 token/天（包月内可承受，但值得分层）。建议首批：OpenAI、DeepMind、TechCrunch AI、Latent Space、Simon Willison、TLDR AI、Interconnects（7 个精选）+ HN；全站类（NVIDIA/MIT TR/Verge/Ars）与 arXiv 视阅读价值二期再加。
 
+### 新源调查标准流程（SOP，2026-09-18 固化，源自 ADR-0005 阶梯）
+
+按序探测，**首个可用通道即停**（经济原则）；阶梯失败或结论存疑时做全通道扫描：
+
+1. **RSS 自动发现**：首页 `<link rel="alternate" type="application/rss|atom+xml">`（比猜路径可靠）；
+2. **常见 RSS 路径**：`/rss`、`/rss.xml`、`/feed`、`/feed.xml`、`/atom.xml`；
+3. **已知开放 API**（领域常识：GitHub/HN Algolia/知乎专栏/CSDN/arXiv…）；
+4. **sitemap.xml**（注意 sitemapindex 子图需展开，如 OpenAI/Anthropic）；
+5. **robots.txt**（既看许可，也常暴露 sitemap 与架构线索）；
+6. **服务端渲染 HTML**（正文/列表是否直接在 HTML 中）；
+7. **结构化数据**（JSON-LD / Schema.org / OG 标签——可取标题/时间/摘要元数据）；
+8. **外网站点**：直连失败先走 VPN 代理复测，再下"不可达"结论；
+9. WAF/JS 质询 = 该站对匿名机器关闭，不规避（原则见 ADR-0009 同源决策）。
+
+> 补查记录（2026-09-18）：对早期查得较浅的三源做全通道扫描——机器之心（无 alternate/无 sitemap/robots 常规）、甲子光年（全无）、36氪（sitemap/robots 均 SPA 壳）——**无遗漏通道，维持原结论**。
+
 ### 下一步（T2 落地）
 
 用户从清单勾选 → 逐个验证 RSS/接口存活 → 加入 `sources.yaml`（rss 类型已设计未实现，实现后启用）。

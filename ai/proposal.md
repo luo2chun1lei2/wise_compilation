@@ -84,3 +84,4 @@
 | 56 | 09-18 | 调查 x.ai 研究文档/技术实践页面；/news 混杂能否不用 AI 过滤、或需多少 token | 新源调查 | T2 补充：本机 DNS 污染+代理仍 Cloudflare 403 → 不可达不接入；过滤成本本身极低（规则 0 token / LLM 约 0.15 万/天），卡点在抓取不在过滤 |
 | 57 | 09-18 | 公司用 SquirrelVPN 访问外网：可走代理；未启动可调 ~/bin/cnt_outer.sh，程序名 sqd，启动后等 20s，用后不关 | 外网通道开通 | V17：proxy 配置+源级开关+ensure_vpn 自动拉起；Import AI 接入（26 源）；x.ai 复测仍被 Cloudflare 拦 |
 | 58 | 09-18 | 调查 Google 大模型文章（疑 deepmind.google/research），确定其他来源并接入 | Google 系调查 | V18：research 页 JS 渲染不可直采（内容同步进博客）；新增 Google Research 博客与 blog.google AI（走代理）；启用源 28 个 |
+| 59 | 09-18 | 问：对提供的网站会按全通道检查吗 | 调查流程标准化 | tech.md 固化「新源调查 SOP」8 步（RSS自动发现→路径→API→sitemap→robots→SSR→结构化数据→代理复测），早停+存疑全扫；三源补查无遗漏 |
