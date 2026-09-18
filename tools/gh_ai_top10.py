@@ -43,7 +43,7 @@ DEFAULT_QUERY = "topic:artificial-intelligence stars:>500 pushed:>{week}"
 
 # 运行统计（成本项）：token 数来自 GLM 响应的 usage 字段，精确值
 STATS = {"gh_api": 0, "zhihu_api": 0, "csdn_api": 0, "rss_api": 0, "hn_api": 0,
-         "llm_calls": 0, "prompt_tokens": 0,
+         "sitemap_api": 0, "llm_calls": 0, "prompt_tokens": 0,
          "completion_tokens": 0, "total_tokens": 0}
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
@@ -176,6 +176,52 @@ def fetch_rss(url, limit):
             "pushed_at": published,
             "zhihu_meta": None,
             "rss_meta": {"feed": True, "feed_title": feed_title},
+            "en_article": True,
+            "no_readme": True,
+        })
+    return repos
+
+
+def fetch_sitemap(url, days, limit, feed_name, url_include):
+    """sitemap.xml 采集（type: sitemap，ADR-0005 阶梯③；T2 延伸 2026-09-18）。
+
+    场景：有官方 sitemap 但无 RSS、HTML 页面反爬（如 OpenAI research）。
+    拿 URL+lastmod（正规渠道），标题由 slug 派生（后续经 LLM 翻译润色），无摘要。
+    url_include：仅保留含该子串的 URL（过滤 /news/ 这类栏目页）。
+    """
+    r = requests.get(url, headers={"User-Agent": UA}, timeout=60)
+    r.raise_for_status()
+    STATS["sitemap_api"] += 1
+    cutoff = date.today() - timedelta(days=days)
+    rows = []
+    for b in re.findall(r"<url>(.*?)</url>", r.text, re.S):
+        loc = re.search(r"<loc>([^<]+)</loc>", b)
+        lm = re.search(r"<lastmod>([^<]+)</lastmod>", b)
+        if not (loc and lm):
+            continue
+        try:
+            d = datetime.fromisoformat(lm.group(1).replace("Z", "+00:00")).date()
+        except ValueError:
+            continue
+        link = loc.group(1)
+        if url_include and url_include not in link:
+            continue
+        if d >= cutoff:
+            rows.append((d.isoformat(), link))
+    rows.sort(reverse=True)
+    repos = []
+    for d, link in rows[:limit]:
+        slug = link.rstrip("/").split("/")[-1]
+        pretty = " ".join(w[:1].upper() + w[1:] for w in slug.split("-"))
+        repos.append({
+            "full_name": pretty,
+            "html_url": link,
+            "description": "",
+            "stargazers_count": 0,
+            "language": None,
+            "topics": [],
+            "pushed_at": d + "T00:00:00",
+            "rss_meta": {"feed": True, "feed_title": feed_name},
             "en_article": True,
             "no_readme": True,
         })
@@ -461,6 +507,11 @@ def translate_article(title, summary, secret):
     """
     if cjk_ratio(title) > 0.25 and (not summary or cjk_ratio(summary) > 0.25):
         return title, summary, "zh-skip"
+    if not summary.strip():
+        # 仅标题（如 HN 无正文、sitemap slug 派生标题）：走简单翻译，避免分行格式解析失败
+        t_zh, lang = translate(title, secret)
+        t_zh = re.sub(r"^[#*>\s]+|\*\*", "", t_zh).strip()[:80]
+        return (t_zh if lang == "llm" and t_zh else title), "", lang
     if len((title + (summary or "")).encode("utf-8")) > MAX_TRANSLATE_BYTES:
         zh, lang = translate(summary, secret)
         return title, zh, lang + "|超限保原文"
@@ -574,7 +625,10 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     if is_hn:
         data_src = "Hacker News 官方 Algolia API（front_page，按 points 排名）"
     elif is_feed:
-        data_src = "RSS 订阅（%s，最新 N 条）" % query.replace("RSS：", "")[:60]
+        if "sitemap" in query:
+            data_src = "官方 sitemap（URL+lastmod，近 N 天；slug 派生标题）"
+        else:
+            data_src = "RSS 订阅（%s，最新 N 条）" % query.replace("RSS：", "")[:60]
     elif is_zhihu_col:
         data_src = ("CSDN 搜索接口（so.csdn.net/api/v3，时间窗过滤）" if is_csdn
                     else "知乎专栏文章 API（api/v4/columns，无需登录）")
@@ -695,6 +749,7 @@ def main():
     csdn_cfg = None
     rss_cfg = None
     hn_cfg = None
+    sitemap_cfg = None
     if args.source:
         entry = load_source_entry(args.source)
         label = args.source
@@ -722,12 +777,23 @@ def main():
         elif stype == "hn":
             hn_cfg = entry
             args.query = "hn.algolia.com front_page（points 热点排名）"
+        elif stype == "sitemap":
+            sitemap_cfg = entry
+            args.query = "sitemap：%s（近 %s 天）" % (entry.get("url", ""), entry.get("days", 7))
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    if hn_cfg is not None:
+    if sitemap_cfg is not None:
+        print("[1/5] sitemap：%s（近 %s 天，取 %s 条）" % (
+            sitemap_cfg.get("url"), sitemap_cfg.get("days", 7), sitemap_cfg.get("limit", 10)))
+        repos = fetch_sitemap(sitemap_cfg.get("url") or "",
+                              int(sitemap_cfg.get("days") or 7),
+                              int(sitemap_cfg.get("limit") or 10),
+                              sitemap_cfg.get("title") or "Sitemap 资讯",
+                              sitemap_cfg.get("url_include") or "")
+    elif hn_cfg is not None:
         print("[1/5] Hacker News front_page（取 %s 条，按 points 排序）" % hn_cfg.get("limit", 10))
         repos = fetch_hn(int(hn_cfg.get("limit") or 10))
     elif rss_cfg is not None:

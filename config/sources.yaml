@@ -11,6 +11,18 @@ sources:
     topic: tech
     enabled: true
 
+  # OpenAI 研究板块（用户指定 2026-09-18）：无 RSS、HTML 反爬 → 走官方 sitemap（URL+lastmod），
+  # 标题由 slug 派生并 LLM 润色；只收近 7 天；与 news 源共用 /index/ URL 空间，自动去重
+  - name: openai-research
+    type: sitemap
+    url: https://openai.com/sitemap.xml/research/
+    days: 7
+    limit: 10
+    title: OpenAI Research
+    url_include: "/index/"
+    topic: tech
+    enabled: true
+
   - name: deepmind-blog
     type: rss
     url: https://deepmind.google/blog/rss.xml

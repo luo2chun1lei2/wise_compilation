@@ -12,6 +12,7 @@
 | 2026-09-18 | 邮件全文/折叠/反垃圾修复（V11）；RSS 适配器 + 量子位 + Qwen（V12） | verify.md |
 | 2026-09-18 | 国内大模型厂商源接入（DeepSeek/智谱/Kimi/字节/腾讯，共 14 源） | sources.yaml |
 | 2026-09-18 | 国外首批源接入（7 RSS + Hacker News，共 22 源） | verify.md V13 |
+| 2026-09-18 | OpenAI Research 源（sitemap 适配器，共 23 源） | verify.md V14 |
 
 ## 后续计划
 

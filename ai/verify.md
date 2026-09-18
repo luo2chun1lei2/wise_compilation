@@ -159,3 +159,10 @@
 - **结果**：✅ 8 源全部试跑通过（各 10 条）：openai-news / deepmind-blog / techcrunch-ai / latent-space / simon-willison / tldr-ai / interconnects（RSS）+ hackernews-top（新 `type: hn` 适配器，Algolia front_page 按 points 排名=ADR-0020 排名语义）。
 - **英文合并翻译**：RSS/HN 条目标题+摘要合并一次 LLM 调用（不增调用量，落实 ADR-0010"标题始终翻译"）；实测 OpenAI 榜中文标题+摘要俱佳；修复"标题：/摘要："前缀回显与（无）占位。
 - **启用源达 22 个**；明早邮件目录 22 节。LLM 用量预估：英文源 +80 条/天 ≈ 10~15 万 token/天（包月内）。
+
+## V14 OpenAI Research 源（2026-09-18，用户指定）
+
+- **需求**：收集 openai.com 的 news 中文版与 research 板块（工程实践/技术研究博客），近一周，已收集过的去重。
+- **调查**：中文 RSS 不存在（403）；research 无 RSS（404）且**不在 news RSS 中**（实测 0 条 research 链接，此前一直漏采）；research HTML 页面有 JS 反爬（完整浏览器头仍 403）。
+- **方案**：新 `type: sitemap` 适配器——官方 `sitemap.xml/research/`（合规，ADR-0005 阶梯③）拿 URL+lastmod，近 7 天过滤（用户指定），slug 首字母大写后 LLM 翻译为标题（无摘要）。research 与 news 共用 `/index/` URL 空间 → url_norm 去重天然跨源生效。
+- **结果**：✅ 10 篇近 7 天文章（模型对齐偏差报告框架、GPT 6 Astra、Sora 2 等），标题全部中文；修复仅标题条目的分行格式解析失败（改走简单翻译）与标题清洗。启用源 23 个。
