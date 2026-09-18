@@ -124,7 +124,10 @@ def main():
 
 
 def record_verify(day_str, collect_ok, total, publish_ok, notify_ok, elapsed, started_ts):
-    """在 ai/verify.md 追加一行运行记录（要求 #53：耗时≈分钟、token≈万）。"""
+    """在 result/<日期>/summary.md 追加一条运行记录（要求 #54：按天归档防膨胀）。
+
+    耗时≈分钟、token≈万（要求 #53 的约数口径）；每运行一次追加一行。
+    """
     import sqlite3
     tokens = calls = 0
     try:
@@ -144,19 +147,18 @@ def record_verify(day_str, collect_ok, total, publish_ok, notify_ok, elapsed, st
         conn.close()
     except Exception:
         pass
-    vpath = ROOT / "ai" / "verify.md"
+    day_dir = ROOT / "result" / day_str
+    day_dir.mkdir(parents=True, exist_ok=True)
+    spath = day_dir / "summary.md"
+    hm = time.strftime("%H:%M")
     row = "| %s | 采集 %d/%d · 发布 %d · 通知 %s | ~%d 分钟 | %d 次调用 · ~%.1f 万 tokens |" % (
-        day_str, collect_ok, total, publish_ok,
+        hm, collect_ok, total, publish_ok,
         ("跳过" if notify_ok is None else ("OK" if notify_ok else "FAIL")),
         round(elapsed / 60.0), calls, tokens / 10000.0)
-    header = ("\n## 运行记录（run_pipeline 自动追加，要求 #53）\n\n"
-              "| 日期 | 结果 | 耗时 | LLM 用量 |\n|---|---|---|---|\n")
-    text = vpath.read_text(encoding="utf-8") if vpath.exists() else ""
-    if "## 运行记录" in text:
-        text = text.rstrip("\n") + "\n" + row + "\n"
-    else:
-        text = text.rstrip("\n") + "\n" + header + row + "\n"
-    vpath.write_text(text, encoding="utf-8")
+    header = ("# 运行记录（%s）\n\n| 时间 | 结果 | 耗时 | LLM 用量 |\n|---|---|---|---|\n" % day_str)
+    text = spath.read_text(encoding="utf-8") if spath.exists() else ""
+    text = text.rstrip("\n") + "\n" + row + "\n" if text.strip() else header + row + "\n"
+    spath.write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":

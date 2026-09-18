@@ -83,7 +83,7 @@ python3 tools/schedule.py --remove            # 移除定时
 ai/        需求(proposal)、调查与决策(tech/ADR)、设计(design)、验证(verify)、凭据(secret，不入库)
 tools/     采集(gh_ai_top10.py)、发布(mindoc_publish.py)、通知(email_notify.py 等)
 config/    四份配置（见上）
-result/    汇编成果，按日期归档（入 git）
+result/    汇编成果，按日期归档（入 git）；每天一个 summary.md 运行记录（耗时/LLM 用量）
 material/  原材料（预留）
 data/      SQLite 与运行数据（不入 git）
 ```

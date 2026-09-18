@@ -79,3 +79,4 @@
 | 51 | 09-18 | 「接入」国外首批 | 源接入执行 | V13：7 RSS + HN 适配器（points 排名）+ 英文标题摘要合并翻译；启用源 22 个 |
 | 52 | 09-18 | 收集 openai.com 中文 news 与 research 板块（近一周，去重） | 新板块采集 | V14：research 无 RSS+HTML 反爬 → sitemap 适配器（URL+lastmod+slug 标题）；启用源 23 个 |
 | 53 | 09-18 | 全流程耗时长：每次运行在 verify.md 记录整体时间与 token 花费（约数即可：分钟/万token） | 成本留痕 | 采集脚本 runs 入库 + run_pipeline 自动追加「运行记录」表；V15 实测：22 源 44 分钟 173 次 13.5 万 tokens |
+| 54 | 09-18 | 运行记录每天一条会无限增长且难找：移到 result/<日期>/summary.md，每文件夹一个、每次运行追加一条 | 数据组织 | run_pipeline 改写 summary.md；verify.md 已迁移并留指引 |
