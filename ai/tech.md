@@ -186,6 +186,19 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 **接入优先级建议**：① 量子位 RSS（需实现 rss 适配器，feed 自带 10 条=最新规则）；② Qwen 的 GitHub 源（零新代码）；③ 智谱/智源风云榜深查（可选）。
 
+### 国内大模型厂商渠道实测（2026-09-18，用户指定的六家）
+
+| 厂商 | GitHub 组织（近 30 天活跃仓库，实测） | 官网新闻/博客 | 结论 |
+|---|---|---|---|
+| DeepSeek | ✅ `deepseek-ai`（8 个：deepseek-harness 228k★、FlashMLA、DeepEP…） | 官网 SPA，无合规列表 | **GitHub 接入** |
+| 智谱 | ✅ `zai-org`（GLM-5 7.2k★、GLM-V、SCAIL-2…） | news 页有 2026-08 数据但在 JS 后（标题提取待深查） | **GitHub 接入**；官网待深查 |
+| Kimi（月之暗面） | ✅ `MoonshotAI`（kimi-cli 11.4k★、kimi-code、FlashKDA…） | moonshot.ai 为产品页，无新闻流 | **GitHub 接入** |
+| 豆包（字节） | ✅ `bytedance`（31 个活跃，头部为 deer-flow 82.6k★/UI-TARS 等 AI 仓库，混杂部分非 AI 基础设施） | 火山引擎为产品页，无新闻列表 | **GitHub 接入**（star 排序下头部均为 AI；噪声可接受） |
+| 腾讯混元 | ✅ `Tencent-Hunyuan`（7 个：HunyuanOCR、AuK、UniRL…） | hunyuan.tencent.com 为 6.9KB SPA 壳 | **GitHub 接入** |
+| 华为盘古 | ❌ 无公开模型组织（MindSpore 为框架非盘古）；盘古不开源 | 华为云产品页，无资讯流 | **暂无合规通道**（公众号/华为云资讯为主） |
+
+> 六家的模型发布动态在 GitHub releases 上都足够及时；官网侧全部 SPA/产品页，本轮不深查（智谱 news 页留作后续候选）。
+
 ### 下一步（T2 落地）
 
 用户从清单勾选 → 逐个验证 RSS/接口存活 → 加入 `sources.yaml`（rss 类型已设计未实现，实现后启用）。
