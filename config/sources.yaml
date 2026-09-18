@@ -3,6 +3,23 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
+  # ---- RSS（ADR-0020 准入：正规订阅源；feed 自带最新 N 条）----
+  - name: qbitai-rss
+    type: rss
+    url: https://www.qbitai.com/feed     # 量子位官网 RSS（2026-09-18 实测活跃）
+    limit: 10                            # 最新十条（无排名/热点语义）
+    topic: tech
+    enabled: true
+
+  # ---- Qwen（T2 国内实测：qwen.ai 为 SPA，合规通道=GitHub org）----
+  - name: github-qwen
+    type: github
+    mode: search
+    query: "user:QwenLM pushed:>now-30d"
+    per_page: 10
+    topic: tech
+    enabled: true
+
   # ---- CSDN（ADR-0019：so.csdn.net 搜索接口，时间窗+关键词过滤，无需登录）----
   - name: csdn-ai-search
     type: csdn

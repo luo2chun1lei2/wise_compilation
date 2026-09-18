@@ -75,7 +75,7 @@ python3 tools/schedule.py --remove            # 移除定时
 | `topics.yaml` | 专题定义与归类关键词 | 加专题/关键词 |
 | `settings.yaml` | 运行参数 | 并发、LLM 限速、翻译字节上限（默认 5000B）、润色开关 |
 
-**当前启用的源**：`github-trending-monthly`（热榜月增速）、`github-codex` / `github-artificial-intelligence` / `github-agent-harness` / `github-ai-agents`（四个 topic 榜）、`zhihu-ai-columns`（机器之心/量子位等专栏）、`csdn-ai-search`（CSDN 近 3 天 AI 文章）。
+**当前启用的源（9 个）**：`qbitai-rss`（量子位 RSS）、`github-qwen`（QwenLM 活跃仓库）、`github-trending-monthly`、`github-codex` / `github-artificial-intelligence` / `github-agent-harness` / `github-ai-agents`（topic 榜）、`zhihu-ai-columns`（机器之心等专栏）、`csdn-ai-search`（CSDN 近 3 天）。
 
 ## 目录结构
 

@@ -22,6 +22,11 @@ from pathlib import Path
 import requests
 import yaml
 
+try:
+    import feedparser
+except ImportError:
+    feedparser = None
+
 ROOT = Path(__file__).resolve().parent.parent
 SECRET_PATH = ROOT / "ai" / "secret.md"
 SOURCES_PATH = ROOT / "config" / "sources.yaml"
@@ -37,7 +42,7 @@ FETCH_INTERVAL = 1.0         # 对 github.com 的请求间隔（ADR-0006 礼貌�
 DEFAULT_QUERY = "topic:artificial-intelligence stars:>500 pushed:>{week}"
 
 # 运行统计（成本项）：token 数来自 GLM 响应的 usage 字段，精确值
-STATS = {"gh_api": 0, "zhihu_api": 0, "csdn_api": 0, "llm_calls": 0, "prompt_tokens": 0,
+STATS = {"gh_api": 0, "zhihu_api": 0, "csdn_api": 0, "rss_api": 0, "llm_calls": 0, "prompt_tokens": 0,
          "completion_tokens": 0, "total_tokens": 0}
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
@@ -130,6 +135,49 @@ def fetch_zhihu_columns(columns, per_column, rank_by):
     if rank_by == "voteup":
         repos.sort(key=lambda x: x["stargazers_count"], reverse=True)
     return [r for r in repos if r["full_name"] and r["html_url"]]
+
+
+def fetch_rss(url, limit):
+    """RSS/Atom 采集（type: rss，ADR-0020 准入：正规订阅源，取最新 N 条）。
+
+    返回 repo 形条目：标题/链接/发布时间/摘要（summary 去 HTML 标签，feed 级）。
+    """
+    if feedparser is None:
+        raise RuntimeError("未安装 feedparser（pip3 install --user feedparser）")
+    r = requests.get(url, headers={"User-Agent": UA}, timeout=60)
+    r.raise_for_status()
+    STATS["rss_api"] += 1
+    d = feedparser.parse(r.content)
+    feed_title = (d.feed.get("title") or url).strip()
+    repos = []
+    for e in d.entries[:limit]:
+        title = (e.get("title") or "").strip()
+        link = (e.get("link") or "").strip()
+        if not (title and link):
+            continue
+        summary = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ",
+                                             e.get("summary") or e.get("description") or "")).strip()
+        published = ""
+        raw = e.get("published") or e.get("updated") or ""
+        if raw:
+            try:
+                from email.utils import parsedate_to_datetime
+                published = parsedate_to_datetime(raw).strftime("%Y-%m-%dT%H:%M:%S")
+            except Exception:
+                published = raw[:19]
+        repos.append({
+            "full_name": title,
+            "html_url": link,
+            "description": summary,
+            "stargazers_count": 0,
+            "language": None,
+            "topics": [],
+            "pushed_at": published,
+            "zhihu_meta": None,
+            "rss_meta": {"feed": True, "feed_title": feed_title},
+            "no_readme": True,
+        })
+    return repos
 
 
 def fetch_csdn_search(query, tm, size, days):
@@ -418,7 +466,11 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     is_zhihu = bool(entries) and all("heat" in e["meta"] for e in entries)
     day = date.today().strftime("%Y-%m-%d")
     is_csdn = "csdn.net" in query
-    if is_zhihu_col:
+    is_feed = bool(entries) and all(e["meta"].get("feed") for e in entries)
+    if is_feed:
+        feed_title = (entries[0]["meta"].get("feed_title") or "RSS 资讯")[:20]
+        title = "%s（%s）" % (feed_title, day)
+    elif is_zhihu_col:
         title = ("CSDN AI 文章榜（%s）" % day) if is_csdn else ("知乎 AI 专栏榜（%s）" % day)
     elif is_zhihu:
         title = "知乎热榜 AI 筛选（%s）" % day
@@ -426,7 +478,9 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         title = "GitHub 热门项目（%s · %s）" % (label, day)
     else:
         title = "GitHub AI 热门项目榜（%s）" % day
-    if is_zhihu_col:
+    if is_feed:
+        data_src = "RSS 订阅（%s，最新 N 条）" % query.replace("RSS：", "")[:60]
+    elif is_zhihu_col:
         data_src = ("CSDN 搜索接口（so.csdn.net/api/v3，时间窗过滤）" if is_csdn
                     else "知乎专栏文章 API（api/v4/columns，无需登录）")
     elif is_zhihu:
@@ -448,7 +502,13 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         t = e["title"]
         return t if len(t) <= 36 else t[:35] + "…"
 
-    if is_zhihu_col:
+    if is_feed:
+        lines += ["| 排名 | 文章 | 发布时间 | 简介 |", "|" + "---|" * 4]
+        for i, e in enumerate(entries, 1):
+            lines.append("| %d | [%s](%s) | %s | %s |" % (
+                i, cell(disp_title(e)), e["url"], (e["published_at"][:16] or "-").replace("T", " "),
+                cell(e["summary_zh"].split("\n")[0][:110])))
+    elif is_zhihu_col:
         def _int(x):
             try:
                 return int(x)
@@ -486,7 +546,9 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
                     i, cell(disp_title(e)), e["url"], format(e["stars"], ","), lang_col, cell(brief)))
     lines += ["", "## 详情", ""]
     for i, e in enumerate(entries, 1):
-        if is_zhihu_col:
+        if is_feed:
+            metric = (e["published_at"][:16] or "—").replace("T", " ")
+        elif is_zhihu_col:
             metric = "%s 赞 · %s 评论" % (format(_int(e["meta"].get("voteup")), ","),
                                           format(_int(e["meta"].get("comments")), ","))
         elif is_zhihu:
@@ -514,6 +576,8 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         lines.append("| 知乎 API 调用 | %d 次（无需登录） | 计数 |" % stats["zhihu_api"])
     if stats.get("csdn_api"):
         lines.append("| CSDN API 调用 | %d 次（无需登录） | 计数 |" % stats["csdn_api"])
+    if stats.get("rss_api"):
+        lines.append("| RSS 抓取 | %d 次 | 计数 |" % stats["rss_api"])
     lines += [
               "| 总耗时（获取→生成） | %.0f 秒 | 计时，统计系统占用时间 |" % elapsed, ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
@@ -532,6 +596,7 @@ def main():
     trending_since = None
     zhihu_cfg = None
     csdn_cfg = None
+    rss_cfg = None
     if args.source:
         entry = load_source_entry(args.source)
         label = args.source
@@ -553,12 +618,19 @@ def main():
             csdn_cfg = entry
             args.query = "csdn.net 搜索（q=%s，tm=%s，近 %s 天）" % (
                 entry.get("query"), entry.get("tm", 2), entry.get("days", 3))
+        elif stype == "rss":
+            rss_cfg = entry
+            args.query = "RSS：%s" % entry.get("url", "")
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    if csdn_cfg is not None:
+    if rss_cfg is not None:
+        print("[1/5] RSS：%s（最新 %s 条）" % (rss_cfg.get("url"), rss_cfg.get("limit", 10)))
+        repos = fetch_rss(rss_cfg.get("url") or "",
+                          int(rss_cfg.get("limit") or 10))
+    elif csdn_cfg is not None:
         print("[1/5] CSDN 搜索：q=%s tm=%s size=%s days=%s" % (
             csdn_cfg.get("query"), csdn_cfg.get("tm", 2),
             csdn_cfg.get("size", 30), csdn_cfg.get("days", 3)))
@@ -599,6 +671,7 @@ def main():
                 "topics": repo.get("topics") or [],
                 "period_delta": repo.get("trending_delta", "")}
         meta.update(repo.get("zhihu_meta") or {})
+        meta.update(repo.get("rss_meta") or {})
         entries.append({
             "url_norm": repo["html_url"], "title": repo["full_name"],
             "url": repo["html_url"], "summary": summary, "summary_zh": summary_zh,
