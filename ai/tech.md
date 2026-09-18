@@ -244,6 +244,18 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 **其他站点复检结论（无变化）**：知乎/CSDN/智源/Qwen/智谱（sitemap 302 无效）/DeepSeek（sitemap 仅 44 个静态产品页）维持原判；机器之心 robots 声明 gzip sitemap（可用但与知乎专栏重复，不接）；MetaAI/VentureBeat/TheVerge 的 robots 均声明 sitemap（备选通道留档）；x.ai 仍 Cloudflare。在用源全部健康（alternate/rss 复核 200）。
 
+### T16 社区/论文类源调查（2026-09-18，用户指定五站）
+
+| 站点 | 渠道实测 | 2026 活跃 | 清单语义 | 结论 |
+|---|---|---|---|---|
+| Hacker News | 官方 Algolia API（已接入 ADR-0013 前身/V13） | ✅ | **排名**（points） | 已接入（hackernews-top） |
+| arXiv | `export.arxiv.org/rss/cs.AI`（官方 RSS，免登录） | ✅ 当日 48 篇 | 最新（无排名） | **已接入**（arxiv-cs-ai，rss 类型零新代码；描述元数据前缀已剥离） |
+| 掘金 | `api.juejin.cn/recommend_api` 免登录 POST；AI 分类 cate_id=6809637771511070734 已验证；**sort_type=3 即热榜**（3=热门/200=最新，阅读量对比验证） | ✅ 当日 | **排名/热榜** | **已接入**（juejin-ai-hot，新 type: juejin；注：热榜混少量跨投非 AI 文，留待有用性评价） |
+| Reddit | 匿名 JSON 直连/代理均被拒（403）；**官方路 = OAuth API**（需注册 reddit 应用拿 client_id/secret，免费） | — | top?t=week=排名 | 可接但需用户提供 Reddit 账号注册应用（待定） |
+| 思否 | `/feeds` Atom 免登录（50 条/当日） | ✅ | 最新 | **不接**：内容为全站问答提问流（非技术文章），AI 占比低，价值有限 |
+
+**同日运维**：github-trending-monthly 当日两轮直连超时（github.com 网络窗口），加 `proxy: true` 后恢复（数据验证成功）。
+
 ### 新源调查标准流程（SOP，2026-09-18 固化，源自 ADR-0005 阶梯）
 
 按序探测，**首个可用通道即停**（经济原则）；阶梯失败或结论存疑时做全通道扫描：

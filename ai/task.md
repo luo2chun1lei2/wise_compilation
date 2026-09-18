@@ -17,6 +17,7 @@
 | 2026-09-18 | 外网代理支持（SquirrelVPN/ensure_vpn）+ Import AI（共 26 源） | verify.md V17 |
 | 2026-09-18 | Google 系源×2（Research 博客 + blog.google AI，走代理，共 28 源） | verify.md V18 |
 | 2026-09-18 | 全通路复检 28 站：修正 InfoQ/Mistral 误判并接入（共 30 源）；SOP 固化 | verify.md V19 |
+| 2026-09-18 | 掘金/arXiv 接入（共 32 源）；全流程双收件人测试通过；trending 改走代理 | verify.md V20 |
 
 ## 后续计划
 

@@ -194,3 +194,9 @@
 - **发现并接入**：`infoq-cn`（/feed，当日中文 AI 资讯，修正 T15 误判）、`mistral-news`（/news/rss 走代理，修正"无 RSS"误判）——均实测 10 条通过。启用源 30 个。
 - **复核无变化**：其余站点维持原判（智谱/DeepSeek sitemap 无新闻价值；机器之心 gzip sitemap 与知乎专栏重复；Meta/VB/Verge sitemap 留档备选）。
 - **流程改进确认**：SOP 第 1 步（rel=alternate 自动发现）必须是第一步——两次误判都源于"猜路径"。
+
+## V20 社区/论文源与全流程双收件人测试（2026-09-18）
+
+- **新源（T16）**：`juejin-ai-hot`（掘金热榜 sort_type=3，AI 分类，作者/赞/评论列）与 `arxiv-cs-ai`（cs.AI RSS 当日 10 篇，摘要前缀清洗）——均实测 10 条通过。启用源 32 个。
+- **全流程测试（用户加第二个收件人 icloud 后）**：采集 29/30（仅 github-trending 直连超时，后已加 proxy 修复并验证）、发布 29/29、**邮件双收件人 OK**、55 分钟 / 255 次调用 / ~20.3 万 tokens（summary.md 已记录）。
+- **Reddit**：需用户注册 OAuth 应用后可接；**思否**：问答流价值低不接。

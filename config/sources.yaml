@@ -3,6 +3,23 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
+  # ---- arXiv（T16：cs.AI RSS，当日新论文；无排名语义取最新 N 条）----
+  - name: arxiv-cs-ai
+    type: rss
+    url: https://export.arxiv.org/rss/cs.AI
+    limit: 10
+    topic: tech
+    enabled: true
+
+  # ---- 掘金（T16：recommend API 免登录，sort_type=3 即热榜语义；AI 分类 cate_id 已验证）----
+  - name: juejin-ai-hot
+    type: juejin
+    cate_id: "6809637771511070734"   # 人工智能
+    sort_type: 3                     # 3=热榜 | 200=最新
+    limit: 10
+    topic: tech
+    enabled: true
+
   # ---- 国外精选（T2 国外实测 2026-09-18，首批 7+1；英文源走合并翻译）----
   - name: openai-news
     type: rss
@@ -230,6 +247,7 @@ sources:
     type: github
     mode: trending              # 每行自带"本期新增 star"增量数据
     since: monthly              # daily | weekly | monthly
+    proxy: true                 # github.com 网页直连当日多次超时（2026-09-18 两轮失败），走 VPN 代理
     topic: tech
     enabled: true
 

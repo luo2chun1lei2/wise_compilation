@@ -43,7 +43,7 @@ DEFAULT_QUERY = "topic:artificial-intelligence stars:>500 pushed:>{week}"
 
 # 运行统计（成本项）：token 数来自 GLM 响应的 usage 字段，精确值
 STATS = {"gh_api": 0, "zhihu_api": 0, "csdn_api": 0, "rss_api": 0, "hn_api": 0,
-         "sitemap_api": 0, "llm_calls": 0, "prompt_tokens": 0,
+         "sitemap_api": 0, "juejin_api": 0, "llm_calls": 0, "prompt_tokens": 0,
          "completion_tokens": 0, "total_tokens": 0}
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
@@ -193,6 +193,10 @@ def fetch_rss(url, limit):
             continue
         summary = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ",
                                              e.get("summary") or e.get("description") or "")).strip()
+        if "arxiv.org" in url:  # arXiv RSS 描述带元数据前缀，剥离
+            summary = re.sub(r"^arXiv:\S+\s*(Announce Type:\s*\w+\s*)?"
+                             r"(公告类型：\s*\w+\s*)?", "", summary)
+            summary = re.sub(r"^(摘要：|Abstract:)\s*", "", summary).strip()
         published = ""
         raw = e.get("published") or e.get("updated") or ""
         if raw:
@@ -297,6 +301,41 @@ def fetch_hn(limit):
             "no_readme": True,
         })
     repos.sort(key=lambda x: x["zhihu_meta"]["voteup"], reverse=True)
+    return repos
+
+
+def fetch_juejin(cate_id, sort_type, limit):
+    """掘金分类文章流（type: juejin，T16：recommend API 免登录；sort_type 3=热榜、200=最新）。"""
+    r = requests.post("https://api.juejin.cn/recommend_api/v1/article/recommend_cate_tag_feed",
+                      json={"id_type": 2, "sort_type": sort_type, "cate_id": cate_id,
+                            "cursor": "0", "limit": limit, "version": 1},
+                      headers={"User-Agent": UA, "Content-Type": "application/json"},
+                      timeout=30)
+    r.raise_for_status()
+    STATS["juejin_api"] += 1
+    repos = []
+    for it in r.json().get("data") or []:
+        ai = it.get("article_info") or {}
+        au = it.get("author_user_info") or {}
+        title = (ai.get("title") or "").strip()
+        aid = ai.get("article_id")
+        if not (title and aid):
+            continue
+        ctime = ai.get("ctime")
+        repos.append({
+            "full_name": title,
+            "html_url": "https://juejin.cn/post/%s" % aid,
+            "description": (ai.get("brief") or "").strip(),
+            "stargazers_count": 0,
+            "language": None,
+            "topics": [],
+            "pushed_at": datetime.fromtimestamp(int(ctime)).strftime("%Y-%m-%dT%H:%M:%S") if ctime else "",
+            "zhihu_meta": {"voteup": ai.get("digg_count") or 0,
+                           "comments": ai.get("comment_count") or 0,
+                           "column": (au.get("user_name") or "")[:14],
+                           "views": ai.get("view_count") or 0},
+            "no_readme": True,
+        })
     return repos
 
 
@@ -643,8 +682,11 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     day = date.today().strftime("%Y-%m-%d")
     is_csdn = "csdn.net" in query
     is_hn = "hn.algolia" in query
+    is_juejin = "juejin.cn" in query
     is_feed = bool(entries) and all(e["meta"].get("feed") for e in entries)
-    if is_hn:
+    if is_juejin:
+        title = "掘金 AI 热榜（%s）" % day
+    elif is_hn:
         title = "Hacker News 热点榜（%s）" % day
     elif is_feed:
         feed_title = (entries[0]["meta"].get("feed_title") or "RSS 资讯")[:20]
@@ -657,7 +699,9 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         title = "GitHub 热门项目（%s · %s）" % (label, day)
     else:
         title = "GitHub AI 热门项目榜（%s）" % day
-    if is_hn:
+    if is_juejin:
+        data_src = "掘金 recommend API（免登录，sort_type=3 热榜）"
+    elif is_hn:
         data_src = "Hacker News 官方 Algolia API（front_page，按 points 排名）"
     elif is_feed:
         if "sitemap" in query:
@@ -785,6 +829,7 @@ def main():
     rss_cfg = None
     hn_cfg = None
     sitemap_cfg = None
+    juejin_cfg = None
     if args.source:
         entry = load_source_entry(args.source)
         label = args.source
@@ -820,12 +865,22 @@ def main():
         elif stype == "sitemap":
             sitemap_cfg = entry
             args.query = "sitemap：%s（近 %s 天）" % (entry.get("url", ""), entry.get("days", 7))
+        elif stype == "juejin":
+            juejin_cfg = entry
+            args.query = "juejin.cn 热榜（cate=%s，sort=%s）" % (
+                entry.get("cate_id"), entry.get("sort_type", 3))
     args.query = resolve_query(args.query)
 
     secret = load_secret()
     token = secret.get("GITHUB_TOKEN", "")
     started = time.time()
-    if sitemap_cfg is not None:
+    if juejin_cfg is not None:
+        print("[1/5] 掘金：cate=%s sort=%s limit=%s" % (
+            juejin_cfg.get("cate_id"), juejin_cfg.get("sort_type", 3), juejin_cfg.get("limit", 10)))
+        repos = fetch_juejin(juejin_cfg.get("cate_id") or "",
+                             int(juejin_cfg.get("sort_type") or 3),
+                             int(juejin_cfg.get("limit") or 10))
+    elif sitemap_cfg is not None:
         print("[1/5] sitemap：%s（近 %s 天，取 %s 条）" % (
             sitemap_cfg.get("url"), sitemap_cfg.get("days", 7), sitemap_cfg.get("limit", 10)))
         repos = fetch_sitemap(sitemap_cfg.get("url") or "",
