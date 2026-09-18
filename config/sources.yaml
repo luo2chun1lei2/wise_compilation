@@ -3,6 +3,115 @@
 # 类型扩展：出现未支持的 type 时该源跳过并告警，走「调查→适配」流程
 
 sources:
+  # ---- 用户清单补充（2026-09-18，T17）：国际 RSS×6 ----
+  - name: mit-tr
+    type: rss
+    url: https://www.technologyreview.com/feed/
+    limit: 10
+    ai_filter: true        # 全站流，标题过滤 AI
+    topic: tech
+    enabled: true
+
+  - name: ieee-spectrum-ai
+    type: rss
+    url: https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss
+    limit: 10
+    topic: tech
+    enabled: true          # AI 专属频道，无需过滤
+
+  - name: bair-blog
+    type: rss
+    url: https://bair.berkeley.edu/blog/feed.xml
+    limit: 10
+    topic: tech
+    enabled: true          # Berkeley 研究博客（约月更）
+
+  - name: msr-blog
+    type: rss
+    url: https://www.microsoft.com/en-us/research/feed/
+    limit: 10
+    topic: tech
+    enabled: true
+
+  - name: github-blog
+    type: rss
+    url: https://github.blog/feed/
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
+  - name: alignment-forum
+    type: rss
+    url: https://www.alignmentforum.org/feed.xml
+    limit: 10
+    topic: tech
+    enabled: true          # AI 安全深度讨论
+
+  # ---- 用户清单补充：国内 RSS×8（泛科技媒体走 ai_filter，标题匹配零 LLM）----
+  - name: leiphone-rss
+    type: rss
+    url: https://www.leiphone.com/feed
+    limit: 10
+    topic: tech
+    enabled: true          # AI 垂直媒体，无需过滤
+
+  - name: oschina-rss
+    type: rss
+    url: https://www.oschina.net/news/rss
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
+  - name: ifanr-rss
+    type: rss
+    url: https://www.ifanr.com/feed
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
+  - name: geekpark-rss
+    type: rss
+    url: https://www.geekpark.net/rss
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
+  - name: tmtpost-rss
+    type: rss
+    url: https://www.tmtpost.com/rss
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
+  - name: ithome-rss
+    type: rss
+    url: https://www.ithome.com/rss/
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
+  - name: solidot-rss
+    type: rss
+    url: https://www.solidot.org/index.rss
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
+  - name: sspai-rss
+    type: rss
+    url: https://sspai.com/feed
+    limit: 10
+    ai_filter: true
+    topic: tech
+    enabled: true
+
   # ---- arXiv（T16：cs.AI RSS，当日新论文；无排名语义取最新 N 条）----
   - name: arxiv-cs-ai
     type: rss

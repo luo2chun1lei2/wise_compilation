@@ -87,3 +87,4 @@
 | 59 | 09-18 | 问：对提供的网站会按全通道检查吗 | 调查流程标准化 | tech.md 固化「新源调查 SOP」8 步（RSS自动发现→路径→API→sitemap→robots→SSR→结构化数据→代理复测），早停+存疑全扫；三源补查无遗漏 |
 | 60 | 09-18 | 按 SOP 全通路把之前所有来源跑一遍 | 全量复检 | full_channel_check.py×28 站；修正 InfoQ/Mistral 两处误判并接入（30 源）；SOP 确认 alternate 自动发现应为第一步 |
 | 61 | 09-18 | 调查 arXiv/HN/Reddit/掘金/思否 公开 API 获取 AI 技术文章（热榜前十） | 社区/论文源调查 | T16：掘金热榜与 arXiv 已接入（32 源）；Reddit 需 OAuth 待定；思否价值低不接；全流程双收件人测试通过（29/30、55 分钟、20.3 万 tokens） |
+| 62 | 09-18 | 用户提供国内外实测清单（国际17+国内10），参考接入 | 批量源接入 | T17/V21：过筛后接入 14 源（共 46）；SyncedReview 停更排除；OpenAlex/Crossref/S2 暂缓留档；rss 新增 ai_filter |

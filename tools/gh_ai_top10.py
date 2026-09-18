@@ -173,7 +173,12 @@ def fetch_zhihu_columns(columns, per_column, rank_by):
     return [r for r in repos if r["full_name"] and r["html_url"]]
 
 
-def fetch_rss(url, limit):
+def fetch_rss(url, limit, ai_filter=False, extra_kws=None):
+    """RSS/Atom 采集（type: rss，ADR-0020 准入：正规订阅源，取最新 N 条）。
+
+    ai_filter=True 时按标题关键词（AI_KEYWORDS + extra_kws）过滤，仅保留 AI 相关条目
+    （用于泛科技媒体源，ADR-0009 工具优先——纯规则，零 LLM）。
+    """
     """RSS/Atom 采集（type: rss，ADR-0020 准入：正规订阅源，取最新 N 条）。
 
     返回 repo 形条目：标题/链接/发布时间/摘要（summary 去 HTML 标签，feed 级）。
@@ -185,12 +190,17 @@ def fetch_rss(url, limit):
     STATS["rss_api"] += 1
     d = feedparser.parse(r.content)
     feed_title = (d.feed.get("title") or url).strip()
+    kws = set(k.lower() for k in AI_KEYWORDS) | set(k.lower() for k in (extra_kws or []))
     repos = []
-    for e in d.entries[:limit]:
+    for e in d.entries:
         title = (e.get("title") or "").strip()
         link = (e.get("link") or "").strip()
         if not (title and link):
             continue
+        if ai_filter and not any(k in title.lower() for k in kws):
+            continue
+        if len(repos) >= limit:
+            break
         summary = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ",
                                              e.get("summary") or e.get("description") or "")).strip()
         if "arxiv.org" in url:  # arXiv RSS 描述带元数据前缀，剥离
@@ -676,6 +686,15 @@ def cell(text):
 
 
 def render_md(entries, query, out_path, stats, elapsed, label=None):
+    if not entries:  # 过滤后为空：输出占位文档，避免落进错误的渲染分支
+        day = date.today().strftime("%Y-%m-%d")
+        out_path.write_text("\n".join([
+            "# %s（%s）" % (label or query[:40], day), "",
+            "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "- 查询条件：`%s`" % query, "",
+            "本期无符合条件的条目（关键词过滤或源当日无更新）。", ""]),
+            encoding="utf-8")
+        return
     is_trending = "github.com/trending" in query
     is_zhihu_col = bool(entries) and all("voteup" in e["meta"] for e in entries)
     is_zhihu = bool(entries) and all("heat" in e["meta"] for e in entries)
@@ -894,7 +913,9 @@ def main():
     elif rss_cfg is not None:
         print("[1/5] RSS：%s（最新 %s 条）" % (rss_cfg.get("url"), rss_cfg.get("limit", 10)))
         repos = fetch_rss(rss_cfg.get("url") or "",
-                          int(rss_cfg.get("limit") or 10))
+                          int(rss_cfg.get("limit") or 10),
+                          ai_filter=bool(rss_cfg.get("ai_filter")),
+                          extra_kws=rss_cfg.get("keywords") or [])
     elif csdn_cfg is not None:
         print("[1/5] CSDN 搜索：q=%s tm=%s size=%s days=%s" % (
             csdn_cfg.get("query"), csdn_cfg.get("tm", 2),

@@ -200,3 +200,10 @@
 - **新源（T16）**：`juejin-ai-hot`（掘金热榜 sort_type=3，AI 分类，作者/赞/评论列）与 `arxiv-cs-ai`（cs.AI RSS 当日 10 篇，摘要前缀清洗）——均实测 10 条通过。启用源 32 个。
 - **全流程测试（用户加第二个收件人 icloud 后）**：采集 29/30（仅 github-trending 直连超时，后已加 proxy 修复并验证）、发布 29/29、**邮件双收件人 OK**、55 分钟 / 255 次调用 / ~20.3 万 tokens（summary.md 已记录）。
 - **Reddit**：需用户注册 OAuth 应用后可接；**思否**：问答流价值低不接。
+
+## V21 用户清单批次 14 源接入（2026-09-18）
+
+- **依据**：用户提供实测清单（国际 17 项 + 国内 10 项），按 ADR-0020 过筛。
+- **接入 14 源全部试跑通过**（109 条）：国际 6（MIT TR 9/过滤、IEEE Spectrum AI 10、BAIR 10、MSR 10、GitHub Blog 5/过滤、Alignment Forum 10）+ 国内 8（雷锋网 10、开源中国 10、爱范儿 6/过滤、极客公园 10、钛媒体 6/过滤、IT之家 9/过滤自 60、Solidot 2/过滤、少数派 2/过滤）。
+- **排除/暂缓**：SyncedReview（2025-08 停更）；OpenAlex/Crossref（与 arXiv 重叠）；Semantic Scholar（无 key 限流）；Stack Exchange（可接未接，待确认）。
+- **新能力**：rss `ai_filter` 标题关键词过滤（零 LLM）+ 空结果占位渲染。启用源 **46 个**；日用量预估升至 ~30 万 tokens、运行 ~75-90 分钟（包月内，留待有用性评价再裁剪）。

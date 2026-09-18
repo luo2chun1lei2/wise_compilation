@@ -256,6 +256,20 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 **同日运维**：github-trending-monthly 当日两轮直连超时（github.com 网络窗口），加 `proxy: true` 后恢复（数据验证成功）。
 
+### T17 用户清单批次（2026-09-18，用户提供实测清单 → 按 ADR-0020 过筛接入）
+
+| 处置 | 源 | 说明 |
+|---|---|---|
+| **接入·国际 6** | MIT TR、IEEE Spectrum AI、Berkeley BAIR、MS Research、GitHub Blog、Alignment Forum | 前 5 个 T2 已验证；Alignment Forum 新发现（AI 安全深度讨论，当日活跃）；MIT TR/GitHub Blog 为全站流 → `ai_filter: true` |
+| **接入·国内 8** | 雷锋网、开源中国、爱范儿、极客公园、钛媒体、IT之家、Solidot、少数派 | 雷锋网 AI 专属；其余泛科技 → `ai_filter: true`（rss 适配器新增标题关键词过滤，纯规则零 LLM） |
+| **排除** | SyncedReview | 最新一篇 2025-08-14——**不满足 2026 活跃**（ADR-0020 第 2 条） |
+| **暂缓（留档）** | OpenAlex、Crossref | 文献元数据库，与 arXiv 定位重叠，日更场景价值有限 |
+| **暂缓（留档）** | Semantic Scholar | 无 key 严格限流（429）；如需可申请免费 key 提额 |
+| **可接未接（留档）** | Stack Exchange API | 匿名可用（sort=hot × tag=artificial-intelligence，排名语义）；问答形态，待用户确认需要再加 |
+| 备注 | arXiv cs.LG | export.arxiv.org 直连当日抖动（cs.AI 正常），cs.LG 暂未接入，稳定后可加 |
+
+**新能力**：rss 适配器支持 `ai_filter`/`keywords`（标题关键词过滤）；过滤后 0 条时输出占位文档（不落错渲染分支）。启用源 **46 个**。
+
 ### 新源调查标准流程（SOP，2026-09-18 固化，源自 ADR-0005 阶梯）
 
 按序探测，**首个可用通道即停**（经济原则）；阶梯失败或结论存疑时做全通道扫描：
