@@ -21,6 +21,7 @@ import smtplib
 import sqlite3
 import sys
 from email.header import Header
+from email.utils import formatdate, make_msgid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from html import escape as _esc
@@ -71,6 +72,9 @@ def fold_details(body_md):
 def build_mime(subject, text_body, html_body=None):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = Header(subject, "utf-8")
+    # 标准头缺失会被反垃圾系统大幅扣分（V11 排查：大 HTML 无 Date/Message-ID 被拦）
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain="goldenrivertek.com")
     msg.attach(MIMEText(text_body, "plain", "utf-8"))
     html = html_body
     if html is None and _md_mod is not None:
