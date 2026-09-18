@@ -199,6 +199,33 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 > 六家的模型发布动态在 GitHub releases 上都足够及时；官网侧全部 SPA/产品页，本轮不深查（智谱 news 页留作后续候选）。
 
+### 国外源实测（2026-09-18，原则同国内：ADR-0020）
+
+| 来源 | 渠道（实测） | 2026 活跃 | 清单语义 | 结论 |
+|---|---|---|---|---|
+| OpenAI News | ✅ RSS `openai.com/news/rss.xml` | ✅ 当日 | 最新 | **可接** |
+| Google DeepMind Blog | ✅ RSS `deepmind.google/blog/rss.xml` | ✅ 09-15（Gemini 3.8） | 最新 | **可接** |
+| NVIDIA Blog | ✅ RSS `blogs.nvidia.com/feed/` | ✅ 当日 | 最新 | 可接（全站，非 AI 专属） |
+| Microsoft Research | ✅ RSS `microsoft.com/en-us/research/feed/` | ✅ 08-31 | 最新 | 可接 |
+| Anthropic News | ❌ 无 RSS（各路径 404，页面无 feed 声明） | — | — | 暂缓（后续可 web 定向抓取） |
+| Mistral / Meta AI | ❌ 本机网络不可达（000） | — | — | 暂缓 |
+| MIT Tech Review | ✅ RSS `technologyreview.com/feed/` | ✅ 当日 | 最新 | 可接（全站） |
+| TechCrunch AI | ✅ RSS `techcrunch.com/category/artificial-intelligence/feed/` | ✅ 当日 | 最新 | **可接（AI 专属）** |
+| The Verge | ✅ Atom `theverge.com/rss/index.xml` | ✅ 当日 | 最新 | 可接（全站） |
+| Ars Technica | ✅ RSS `feeds.arstechnica.com/arstechnica/index` | ✅ 09-16 | 最新 | 可接（全站） |
+| VentureBeat AI | ⚠️ 429 限流 | — | — | 暂缓 |
+| Interconnects | ✅ RSS `interconnects.ai/feed` | ✅ 09-11 | 最新 | **可接** |
+| Latent Space | ✅ RSS `latent.space/feed` | ✅ 当日 | 最新 | **可接** |
+| Simon Willison | ✅ Atom `simonwillison.net/atom/everything/` | ✅ 当日 | 最新 | **可接** |
+| Ahead of AI（Raschka） | ✅ RSS `magazine.sebastianraschka.com/feed` | ✅ 09-09 | 最新 | 可接 |
+| TLDR AI | ✅ RSS `tldr.tech/api/rss/ai` | ✅ 当日 | 最新 | **可接** |
+| Import AI | ❌ 本机网络不可达（substack 域名） | — | — | 暂缓 |
+| arXiv cs.CL/cs.AI | ✅ RSS `export.arxiv.org/rss/cs.CL` | ✅ 当日 | 最新 | 可接（量大，论文向） |
+| Hacker News | ✅ 官方 Algolia API（front_page，带 points） | ✅ | **排名/热点**（points 排序） | **可接（需小适配器）** |
+| Reddit r/ML | ❌ 未登录 JSON 被拒 | — | — | 暂缓 |
+
+**成本注记**：国外源为英文 → 每条摘要走 LLM 翻译（≤5000B）。全量接入约 +100 条/天 ≈ 15~20 万 token/天（包月内可承受，但值得分层）。建议首批：OpenAI、DeepMind、TechCrunch AI、Latent Space、Simon Willison、TLDR AI、Interconnects（7 个精选）+ HN；全站类（NVIDIA/MIT TR/Verge/Ars）与 arXiv 视阅读价值二期再加。
+
 ### 下一步（T2 落地）
 
 用户从清单勾选 → 逐个验证 RSS/接口存活 → 加入 `sources.yaml`（rss 类型已设计未实现，实现后启用）。
