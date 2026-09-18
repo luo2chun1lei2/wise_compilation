@@ -16,7 +16,7 @@
 | 编号 | 项目 | 状态 |
 |---|---|---|
 | T1 | 公司 wiki（MinDoc）架构与写入 API | ✅ 完成（2026-09-16，见下文） |
-| T2 | 信息源采集通道（RSS/API 清单） | ⬜ 未开始 |
+| T2 | 权威 AI 信息源清单 | ✅ 清单产出（2026-09-18，见 T2 小节；RSS 端点存活待接入时逐个验证） |
 | T3 | GitHub API 能力与限额 | ✅ 完成（2026-09-16，官方 Search API + 实测三策略对比，ADR-0012） |
 | T4 | LLM API 选型与成本 | ✅ 完成（2026-09-16 选定 GLM 包月订阅并**实测通过**，ADR-0008） |
 | T5 | 调度与部署方式 | ✅ 决策完成（2026-09-16，ADR-0006：本机 + cron 一次性命令 + 并发可配置） |
@@ -137,6 +137,41 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 ### 尾项（实现期）
 
 ~~用真实采集到的标题/简介样本做 Argos vs LLM 质量对比~~ 已取消——2026-09-16 用户改定翻译方案：LLM 优先 + 字节上限（ADR-0010），本节调查留档备用。
+
+## T2 权威 AI 信息源清单（2026-09-18，用户要求的调查）
+
+> 范围声明：调查权威性与覆盖面（实验室/媒体/newsletter/研究/社区榜单五类），标注可采集路径；RSS 端点存活不在本轮逐个实测（接入时验证）。
+
+### 国外
+
+| 类别 | 来源 | 特点 | 获取路径 |
+|---|---|---|---|
+| 实验室官方 | OpenAI News / Anthropic News / Google DeepMind Blog / Microsoft Research / NVIDIA Blog / Mistral News | 一手信源，权威性最高 | 均有或大概率有 RSS（接入时验证） |
+| 实验室官方 | Meta AI Blog / Hugging Face Blog / Allen AI | 同上；HF Blog 有 feed.xml | RSS |
+| 专业媒体 | MIT Technology Review AI、Ars Technica AI、The Verge AI、VentureBeat AI、TechCrunch AI、Wired AI | 深度报道与产业新闻 | 均有 RSS |
+| Newsletter | Import AI（Jack Clark/Anthropic 联创，研究+政策）、The Batch（DeepLearning.AI）、Latent Space（工程师向）、Interconnects（Nathan Lambert，开源/RLHF）、Simon Willison Weblog（LLM 实践第一手）、Ahead of AI（Raschka）、TLDR AI（每日聚合） | 权威性来自作者专业度；多源交叉认可（2026 年多个榜单） | Substack/自有站多有 RSS |
+| 研究/论文 | arXiv cs.AI/cs.CL/cs.LG、Hugging Face Daily Papers | 论文一手流 | arXiv 官方 RSS；HF papers 页 |
+| 社区/榜单 | Hacker News（Algolia API）、Reddit r/MachineLearning & r/LocalLLaMA（JSON API）、LMArena（Chatbot Arena）、Artificial Analysis（能力/价格横评）、Epoch AI（算力与趋势数据）、OpenRouter Rankings（真实用量份额） | 热点风向与客观基准 | API/网页 |
+| 已停运 | Papers with Code（2025 归档） | — | 不推荐 |
+
+### 国内
+
+| 类别 | 来源 | 特点 | 获取路径 |
+|---|---|---|---|
+| 技术媒体 | 机器之心 | 学术/技术深度，论文解读 | 知乎专栏已接入 ✓；官网 RSS 待验证 |
+| 产业媒体 | 量子位 | 产业+大众，更新快 | 知乎专栏已接入 ✓；官网 qbitai.com |
+| 快讯媒体 | 新智元 | 快讯密集、编译为主，量大需甄别 | 公众号为主 |
+| 学术机构 | 智源社区 BAAI（hub.baai.ac.cn） | 研究院背景，学术权威 | 网页 |
+| 产业智库 | 甲子光年、36氪 AI 频道 | 产业/创投视角 | RSS/接口待验证 |
+| 技术社区 | CSDN AI 频道、知乎专栏 | — | 已接入 ✓（ADR-0019/0015）；InfoQ 接口不通（T15） |
+| 国内实验室 | 智谱、DeepSeek、Qwen（qwen.ai+GitHub）、文心、豆包/火山 | 官方一手（中文） | 官网新闻页/公众号/GitHub，接入时核验 |
+| 模型社区 | 魔搭 ModelScope | 模型动态 | 网页 |
+
+> 注：知乎社区对"机器之心/量子位/新智元"存在标题党/编译夸大的批评——建议以实验室一手信源为主、媒体为扩散层交叉阅读。
+
+### 下一步（T2 落地）
+
+用户从清单勾选 → 逐个验证 RSS/接口存活 → 加入 `sources.yaml`（rss 类型已设计未实现，实现后启用）。
 
 ## T3 GitHub 信息源调查
 
