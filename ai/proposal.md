@@ -85,3 +85,4 @@
 | 57 | 09-18 | 公司用 SquirrelVPN 访问外网：可走代理；未启动可调 ~/bin/cnt_outer.sh，程序名 sqd，启动后等 20s，用后不关 | 外网通道开通 | V17：proxy 配置+源级开关+ensure_vpn 自动拉起；Import AI 接入（26 源）；x.ai 复测仍被 Cloudflare 拦 |
 | 58 | 09-18 | 调查 Google 大模型文章（疑 deepmind.google/research），确定其他来源并接入 | Google 系调查 | V18：research 页 JS 渲染不可直采（内容同步进博客）；新增 Google Research 博客与 blog.google AI（走代理）；启用源 28 个 |
 | 59 | 09-18 | 问：对提供的网站会按全通道检查吗 | 调查流程标准化 | tech.md 固化「新源调查 SOP」8 步（RSS自动发现→路径→API→sitemap→robots→SSR→结构化数据→代理复测），早停+存疑全扫；三源补查无遗漏 |
+| 60 | 09-18 | 按 SOP 全通路把之前所有来源跑一遍 | 全量复检 | full_channel_check.py×28 站；修正 InfoQ/Mistral 两处误判并接入（30 源）；SOP 确认 alternate 自动发现应为第一步 |

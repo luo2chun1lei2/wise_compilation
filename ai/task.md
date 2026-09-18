@@ -16,6 +16,7 @@
 | 2026-09-18 | Anthropic 源×2（sitemap 复用，共 25 源） | verify.md V16 |
 | 2026-09-18 | 外网代理支持（SquirrelVPN/ensure_vpn）+ Import AI（共 26 源） | verify.md V17 |
 | 2026-09-18 | Google 系源×2（Research 博客 + blog.google AI，走代理，共 28 源） | verify.md V18 |
+| 2026-09-18 | 全通路复检 28 站：修正 InfoQ/Mistral 误判并接入（共 30 源）；SOP 固化 | verify.md V19 |
 
 ## 后续计划
 

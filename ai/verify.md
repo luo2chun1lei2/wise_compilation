@@ -187,3 +187,10 @@
 - **调查**：用户猜测的 `deepmind.google/research/` 存在（200/212KB）但正文 JS 渲染、无 sitemap（直连间歇 000）；研究亮点会同步进 DeepMind 博客 RSS（已接入）。另发现两大源：**Google Research 博客**（research.google/blog/rss/，100 条、当日更新、研究级内容）与 **blog.google AI 频道**（innovation-and-ai/technology/ai/rss/，20 条）——直连均不可达，走 VPN 代理全通。
 - **接入**：`google-research-blog`、`blog-google-ai`（均 proxy: true）；`deepmind-blog` 补 proxy: true（google 域名直连间歇不稳）。
 - **结果**：✅ 三源各 10 条；Research 博客摘要列即分类标签（算法与理论/机器智能…）。启用源 28 个。
+
+## V19 全通路复检与新源（2026-09-18，要求 #60）
+
+- **工具**：`tools/full_channel_check.py`（SOP 8 步 × 28 站点，alternate/常见 RSS 路径/sitemap/robots，外网走代理）。
+- **发现并接入**：`infoq-cn`（/feed，当日中文 AI 资讯，修正 T15 误判）、`mistral-news`（/news/rss 走代理，修正"无 RSS"误判）——均实测 10 条通过。启用源 30 个。
+- **复核无变化**：其余站点维持原判（智谱/DeepSeek sitemap 无新闻价值；机器之心 gzip sitemap 与知乎专栏重复；Meta/VB/Verge sitemap 留档备选）。
+- **流程改进确认**：SOP 第 1 步（rel=alternate 自动发现）必须是第一步——两次误判都源于"猜路径"。

@@ -236,6 +236,14 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 **成本注记**：国外源为英文 → 每条摘要走 LLM 翻译（≤5000B）。全量接入约 +100 条/天 ≈ 15~20 万 token/天（包月内可承受，但值得分层）。建议首批：OpenAI、DeepMind、TechCrunch AI、Latent Space、Simon Willison、TLDR AI、Interconnects（7 个精选）+ HN；全站类（NVIDIA/MIT TR/Verge/Ars）与 arXiv 视阅读价值二期再加。
 
+### 全通路复检（2026-09-18，要求 #60：SOP 8 步 × 28 站点，tools/full_channel_check.py）
+
+**修正两处早期结论**：
+1. **InfoQ 中国有 `/feed`**（20 条/当日/中文/AI 浓度高）——T15 当时只探了 `/rss`/`sitemap`/`/public`/GraphQL 而 `/feed` 是唯一活口，结论修正为"可用"，已接入（`infoq-cn`）。教训：SOP 第 1 步（rel=alternate 自动发现）应最先做，猜路径会漏。
+2. **Mistral 有 RSS**：真实地址 `mistral.ai/news/rss`（无 .xml 后缀；自动发现标签给出，此前猜 `/news/rss.xml` 落空），走代理可用（87 条），已接入（`mistral-news`）。
+
+**其他站点复检结论（无变化）**：知乎/CSDN/智源/Qwen/智谱（sitemap 302 无效）/DeepSeek（sitemap 仅 44 个静态产品页）维持原判；机器之心 robots 声明 gzip sitemap（可用但与知乎专栏重复，不接）；MetaAI/VentureBeat/TheVerge 的 robots 均声明 sitemap（备选通道留档）；x.ai 仍 Cloudflare。在用源全部健康（alternate/rss 复核 200）。
+
 ### 新源调查标准流程（SOP，2026-09-18 固化，源自 ADR-0005 阶梯）
 
 按序探测，**首个可用通道即停**（经济原则）；阶梯失败或结论存疑时做全通道扫描：
@@ -370,7 +378,7 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 | `/public/v1/*`、`/api/*` | **451**（拒绝） |
 | 首页内嵌数据 | 无（674KB 全是前端资源，内容靠被拦的 GraphQL 加载） |
 
-结论：合规匿名路径不存在；变体仅剩搜索引擎级发现或手动投喂，维持不做。
+结论：~~合规匿名路径不存在~~ **修正（2026-09-18 全通路复检）：`/feed` 可用**（当时漏探该路径），已接入 `infoq-cn`（rss，中文零 LLM）；GraphQL/451 等判断仍成立。
 
 ### CSDN：✅ 搜索接口可用（已实装，ADR-0019）
 
