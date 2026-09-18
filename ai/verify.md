@@ -150,3 +150,5 @@
   - `github-qwen`（`user:QwenLM pushed:>now-30d`）：8 个活跃仓库（qwen-code 27.9k★ 等），零新代码（现有 github search 模式）。
   - 新渲染分支：feed 型表格（排名/文章/发布时间/简介）；成本表增加 RSS 抓取计数。
 - **结论**：rss 类型就绪——T2 清单中所有"RSS 可用"的源（含未来的国外源）自此均可一条配置接入。
+
+- **补充（2026-09-18 晚）**：新增 5 个国内大模型厂商 GitHub 源（deepseek-ai/zai-org/MoonshotAI/bytedance/Tencent-Hunyuan，`user:<org> pushed:>now-30d`）全部试跑通过（8/4/6/10/7 条）；DeepSeek/智谱/Kimi/腾讯产出干净，bytedance 混有非 AI 仓库（sonic、xgplayer 等）——已列入 task.md 后续计划的有用性评价项。启用源增至 14 个。

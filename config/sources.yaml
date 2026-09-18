@@ -20,6 +20,47 @@ sources:
     topic: tech
     enabled: true
 
+  # ---- 国内大模型厂商（T2 实测 2026-09-18：官网均 SPA，合规通道=GitHub org）----
+  - name: github-deepseek
+    type: github
+    mode: search
+    query: "user:deepseek-ai pushed:>now-30d"
+    per_page: 10
+    topic: tech
+    enabled: true
+
+  - name: github-zhipu
+    type: github
+    mode: search
+    query: "user:zai-org pushed:>now-30d"
+    per_page: 10
+    topic: tech
+    enabled: true
+
+  - name: github-kimi
+    type: github
+    mode: search
+    query: "user:MoonshotAI pushed:>now-30d"
+    per_page: 10
+    topic: tech
+    enabled: true
+
+  - name: github-bytedance
+    type: github
+    mode: search
+    query: "user:bytedance pushed:>now-30d"
+    per_page: 10
+    topic: tech
+    enabled: true               # 注：org 混有非 AI 仓库，star 排序头部均为 AI；有用性待数据积累后评价
+
+  - name: github-tencent-hunyuan
+    type: github
+    mode: search
+    query: "user:Tencent-Hunyuan pushed:>now-30d"
+    per_page: 10
+    topic: tech
+    enabled: true
+
   # ---- CSDN（ADR-0019：so.csdn.net 搜索接口，时间窗+关键词过滤，无需登录）----
   - name: csdn-ai-search
     type: csdn
