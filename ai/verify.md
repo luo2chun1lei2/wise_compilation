@@ -181,3 +181,9 @@
 - **实现**：`settings.yaml` 新增 proxy 配置；源级 `proxy: true` 开关；采集前 `ensure_vpn()`（pgrep sqd → 未运行则调脚本并等待）；仅 rss/sitemap 请求走代理（LLM/国内源直连）；run_pipeline 开跑前对启用源统一兜底检查。
 - **结果**：✅ `importai`（Import AI newsletter，substack 域名，评价最高的研究/政策源）接入成功——10 条，标题中文。启用源 26 个。
 - **复测不可达源（via 代理）**：Mistral 无 RSS（404）；Meta AI RSS 400；VentureBeat 仍 429；**x.ai 仍被 Cloudflare 403**（HTML 页 JS 质询，合规通道到头，维持不接入）。
+
+## V18 Google 系源（2026-09-18，用户指定 deepmind.google/research）
+
+- **调查**：用户猜测的 `deepmind.google/research/` 存在（200/212KB）但正文 JS 渲染、无 sitemap（直连间歇 000）；研究亮点会同步进 DeepMind 博客 RSS（已接入）。另发现两大源：**Google Research 博客**（research.google/blog/rss/，100 条、当日更新、研究级内容）与 **blog.google AI 频道**（innovation-and-ai/technology/ai/rss/，20 条）——直连均不可达，走 VPN 代理全通。
+- **接入**：`google-research-blog`、`blog-google-ai`（均 proxy: true）；`deepmind-blog` 补 proxy: true（google 域名直连间歇不稳）。
+- **结果**：✅ 三源各 10 条；Research 博客摘要列即分类标签（算法与理论/机器智能…）。启用源 28 个。

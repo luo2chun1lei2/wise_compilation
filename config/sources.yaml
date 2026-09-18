@@ -49,7 +49,26 @@ sources:
     type: rss
     url: https://deepmind.google/blog/rss.xml
     limit: 10
+    proxy: true          # google 域名直连间歇不稳，统一走代理
     topic: tech
+    enabled: true
+
+  # Google Research 博客（2026-09-18 实测：RSS 100 条、当日更新，走代理）
+  - name: google-research-blog
+    type: rss
+    url: https://research.google/blog/rss/
+    limit: 10
+    proxy: true
+    topic: tech
+    enabled: true
+
+  # Google 官方博客 AI 频道（用户产品/技术动态，走代理）
+  - name: blog-google-ai
+    type: rss
+    url: https://blog.google/innovation-and-ai/technology/ai/rss/
+    limit: 10
+    proxy: true
+    topic: news
     enabled: true
 
   - name: techcrunch-ai
