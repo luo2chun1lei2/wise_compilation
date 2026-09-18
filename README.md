@@ -48,9 +48,11 @@ python3 tools/mindoc_publish.py --file result/2026-09-16/github-trending-monthly
 ### 4. 邮件通知
 
 ```bash
-python3 tools/email_notify.py --digest-day 2026-09-16    # 汇总当日发布，发同事邮箱
+python3 tools/email_notify.py --digest-day 2026-09-16    # 当日全文汇总邮件（含目录导航）
 python3 tools/email_notify.py --test                     # 通道自测
 ```
+
+汇总邮件为**全文内嵌**（wiki 是内网地址，公司外直接读邮件即可）：顶部「📋 目录」可点击跳转到各源章节，每节末尾有「↑ 返回目录」。
 
 ### 5. 一键全链路 与 定时运行（推荐）
 
