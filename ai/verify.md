@@ -174,3 +174,10 @@
 - **调查**：三个入口页均服务端渲染（200，页面直接含文章链接，与 OpenAI 的 403 反爬不同）；无 RSS（T2 已证）但**官方 sitemap 完整**（534 URL，含 187 条 engineering/research，最新到昨日）。
 - **方案**：复用 `type: sitemap` 适配器，按 url_include 分两个源——`anthropic-research`（/research/，近 7 天）与 `anthropic-engineering`（/engineering/，**近 45 天**：工程博客约月更，7 天窗口恒为 0；去重保证宽窗不重复）。
 - **结果**：✅ research 10 条（Claude 助力生物分子建模、多样本越狱等，标题中文）；engineering 1 条（构建高效智能体，2026-08-10）。启用源 25 个。
+
+## V17 外网代理支持与 Import AI（2026-09-18，用户提供 VPN 机制）
+
+- **机制**：SquirrelVPN（进程 `sqd`，本地代理 `http://127.0.0.1:10077`，启动脚本 `~/bin/cnt_outer.sh`，启动后约 20s 可用）。
+- **实现**：`settings.yaml` 新增 proxy 配置；源级 `proxy: true` 开关；采集前 `ensure_vpn()`（pgrep sqd → 未运行则调脚本并等待）；仅 rss/sitemap 请求走代理（LLM/国内源直连）；run_pipeline 开跑前对启用源统一兜底检查。
+- **结果**：✅ `importai`（Import AI newsletter，substack 域名，评价最高的研究/政策源）接入成功——10 条，标题中文。启用源 26 个。
+- **复测不可达源（via 代理）**：Mistral 无 RSS（404）；Meta AI RSS 400；VentureBeat 仍 429；**x.ai 仍被 Cloudflare 403**（HTML 页 JS 质询，合规通道到头，维持不接入）。

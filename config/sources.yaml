@@ -87,6 +87,14 @@ sources:
     topic: tech
     enabled: true
 
+  - name: importai
+    type: rss
+    url: https://importai.substack.com/feed
+    limit: 10
+    proxy: true          # substack 域名直连不可达，走 SquirrelVPN 代理（2026-09-18 用户开通）
+    topic: tech
+    enabled: true
+
   - name: hackernews-top
     type: hn                  # 官方 Algolia API，front_page 按 points 热点排名（ADR-0020 排名语义）
     limit: 10

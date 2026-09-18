@@ -82,3 +82,4 @@
 | 54 | 09-18 | 运行记录每天一条会无限增长且难找：移到 result/<日期>/summary.md，每文件夹一个、每次运行追加一条 | 数据组织 | run_pipeline 改写 summary.md；verify.md 已迁移并留指引 |
 | 55 | 09-18 | 收集 Anthropic 的 research 团队页与 engineering 博客 | 新板块采集 | V16：无 RSS 但页面 SSR+sitemap 完整 → sitemap 适配器复用；research 7 天窗/engineering 45 天窗（月更节奏）；启用源 25 个 |
 | 56 | 09-18 | 调查 x.ai 研究文档/技术实践页面；/news 混杂能否不用 AI 过滤、或需多少 token | 新源调查 | T2 补充：本机 DNS 污染+代理仍 Cloudflare 403 → 不可达不接入；过滤成本本身极低（规则 0 token / LLM 约 0.15 万/天），卡点在抓取不在过滤 |
+| 57 | 09-18 | 公司用 SquirrelVPN 访问外网：可走代理；未启动可调 ~/bin/cnt_outer.sh，程序名 sqd，启动后等 20s，用后不关 | 外网通道开通 | V17：proxy 配置+源级开关+ensure_vpn 自动拉起；Import AI 接入（26 源）；x.ai 复测仍被 Cloudflare 拦 |

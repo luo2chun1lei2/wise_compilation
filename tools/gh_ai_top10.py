@@ -55,6 +55,41 @@ AI_KEYWORDS = ["AI", "人工智能", "大模型", "LLM", "GPT", "ChatGPT", "智�
                "AIGC", "具身智能", "RAG", "Scaling"]
 
 
+PROXIES = None  # 源配置 proxy: true 时启用（settings.yaml 的 proxy.url）
+
+
+def ensure_vpn():
+    """确保 SquirrelVPN 运行（用户提供的机制，2026-09-18）：pgrep sqd，未运行则调启动脚本并等 20s。"""
+    import subprocess as _sp
+    if _sp.run(["pgrep", "-x", "sqd"], capture_output=True).returncode == 0:
+        return True
+    script = Path.home() / "bin" / "cnt_outer.sh"
+    print("  [vpn] 未运行，启动 %s ..." % script)
+    try:
+        _sp.run(["bash", str(script)], timeout=30)
+    except Exception as exc:
+        print("  [vpn] 启动脚本失败：%s" % exc, file=sys.stderr)
+        return False
+    for _ in range(4):  # 共等 20s，每 5s 检查一次
+        time.sleep(5)
+        if _sp.run(["pgrep", "-x", "sqd"], capture_output=True).returncode == 0:
+            print("  [vpn] 已启动")
+            return True
+    print("  [vpn] 启动后 20s 仍未检测到 sqd", file=sys.stderr)
+    return False
+
+
+SETTINGS_PATH = ROOT / "config" / "settings.yaml"
+
+
+def load_proxy():
+    try:
+        cfg = yaml.safe_load(SETTINGS_PATH.read_text(encoding="utf-8")) or {}
+        return (cfg.get("proxy") or {}).get("url") or ""
+    except Exception:
+        return ""
+
+
 def load_secret():
     kv = {}
     for line in SECRET_PATH.read_text(encoding="utf-8").splitlines():
@@ -145,7 +180,7 @@ def fetch_rss(url, limit):
     """
     if feedparser is None:
         raise RuntimeError("未安装 feedparser（pip3 install --user feedparser）")
-    r = requests.get(url, headers={"User-Agent": UA}, timeout=60)
+    r = requests.get(url, headers={"User-Agent": UA}, timeout=60, proxies=PROXIES)
     r.raise_for_status()
     STATS["rss_api"] += 1
     d = feedparser.parse(r.content)
@@ -189,7 +224,7 @@ def fetch_sitemap(url, days, limit, feed_name, url_include):
     拿 URL+lastmod（正规渠道），标题由 slug 派生（后续经 LLM 翻译润色），无摘要。
     url_include：仅保留含该子串的 URL（过滤 /news/ 这类栏目页）。
     """
-    r = requests.get(url, headers={"User-Agent": UA}, timeout=60)
+    r = requests.get(url, headers={"User-Agent": UA}, timeout=60, proxies=PROXIES)
     r.raise_for_status()
     STATS["sitemap_api"] += 1
     cutoff = date.today() - timedelta(days=days)
@@ -753,6 +788,11 @@ def main():
     if args.source:
         entry = load_source_entry(args.source)
         label = args.source
+        if entry.get("proxy"):
+            global PROXIES
+            if ensure_vpn():
+                PROXIES = {"http": load_proxy(), "https": load_proxy()}
+                print("  [vpn] 使用代理：%s" % PROXIES["http"])
         STATS["source"] = args.source
         stype = entry.get("type")
         if stype == "github" and entry.get("mode") == "trending":

@@ -10,3 +10,7 @@ translate:
   oversize: keep_original  # keep_original=保留原文 | link_only=只留标题与链接
 
 llm_polish: false   # 周报导语/趋势解读的 LLM 润色开关（默认关闭，纯模板成文）
+
+proxy:
+  url: http://127.0.0.1:10077    # SquirrelVPN 本地代理（用户提供的外网通道，2026-09-18）
+  ensure_script: ~/bin/cnt_outer.sh   # VPN 未运行时的启动脚本；程序名 sqd，启动后等待 ~20s

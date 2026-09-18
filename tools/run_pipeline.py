@@ -58,7 +58,13 @@ def main():
 
     # ---- 阶段 1：采集（全部启用源） ----
     cfg = yaml.safe_load(SOURCES.read_text(encoding="utf-8")) or {}
-    sources = [s["name"] for s in cfg.get("sources") or [] if s.get("enabled", True)]
+    enabled = [s for s in cfg.get("sources") or [] if s.get("enabled", True)]
+    sources = [s["name"] for s in enabled]
+    if any(s.get("proxy") for s in enabled):
+        sys.path.insert(0, str(ROOT / "tools"))
+        from gh_ai_top10 import ensure_vpn
+        if not ensure_vpn():
+            w("⚠️ VPN 未就绪，代理类源将失败（其余源不受影响）")
     w("阶段1 采集：%d 个源 %s" % (len(sources), sources))
     results = []  # (source, ok, file)
     for name in sources:

@@ -14,6 +14,7 @@
 | 2026-09-18 | 国外首批源接入（7 RSS + Hacker News，共 22 源） | verify.md V13 |
 | 2026-09-18 | OpenAI Research 源（sitemap 适配器，共 23 源） | verify.md V14 |
 | 2026-09-18 | Anthropic 源×2（sitemap 复用，共 25 源） | verify.md V16 |
+| 2026-09-18 | 外网代理支持（SquirrelVPN/ensure_vpn）+ Import AI（共 26 源） | verify.md V17 |
 
 ## 后续计划
 
