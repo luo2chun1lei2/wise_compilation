@@ -48,6 +48,26 @@ def load_secret():
     return kv
 
 
+def fold_details(body_md):
+    """把 '## 详情' 下的每个 '### ' 小节折叠为 <details><summary>（用户要求 #42）。
+
+    纯 HTML 无 JS：支持的客户端点击展开；不支持的自动全展开（等价于原样式，零损失）。
+    """
+    if "## 详情" not in body_md:
+        return body_md
+    head, detail = body_md.split("## 详情", 1)
+    parts = re.split(r"^### ", detail, flags=re.M)
+    chunks = []
+    for seg in parts[1:]:
+        lines = seg.split("\n", 1)
+        title = lines[0].strip()
+        content = lines[1].strip("\n") if len(lines) > 1 else ""
+        chunks.append(
+            '<details markdown="1"><summary style="cursor:pointer;"><b>%s</b></summary>\n\n%s\n\n</details>'
+            % (_esc(title), content))
+    return head + "## 详情\n\n" + "\n\n".join(chunks) + "\n"
+
+
 def build_mime(subject, text_body, html_body=None):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = Header(subject, "utf-8")
@@ -149,7 +169,9 @@ def main():
             text_parts += ["=" * 46, "%d. %s（%d 条）" % (i, title, n_rows), "=" * 46, body_md]
             body_html = ""
             if _md_mod is not None:
-                body_html = _md_mod.markdown(body_md, extensions=["tables", "fenced_code"])
+                folded = fold_details(body_md)
+                body_html = _md_mod.markdown(
+                    folded, extensions=["tables", "fenced_code", "md_in_html"])
                 # 邮件客户端吃内联样式：表格加边框
                 body_html = body_html.replace(
                     "<table>", '<table border="1" cellpadding="5" cellspacing="0" '
