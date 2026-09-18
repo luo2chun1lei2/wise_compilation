@@ -180,10 +180,15 @@ def main():
                 body_html = body_html.replace(
                     "<table>", '<table border="1" cellpadding="5" cellspacing="0" '
                                'style="border-collapse:collapse;border-color:#bbb;">')
+            # 整节折叠（用户要求 #43）：源标题为折叠条，点开才显示表格与详情；条目详情保持二级折叠
             sections_html.append(
-                '<h2 id="sec%d" style="border-bottom:2px solid #4a90d9;padding-bottom:4px;">'
-                '%d. %s <small style="color:#888;">（%d 条）</small></h2>%s'
+                '<details id="sec%d">'
+                '<summary style="cursor:pointer;font-size:16px;font-weight:bold;'
+                'color:#2a5db0;border-bottom:2px solid #4a90d9;padding:6px 0;">'
+                '%d. %s（%d 条）</summary>'
+                '<div style="padding-top:8px;">%s</div>'
                 '<p style="font-size:12px;"><a href="#toc">↑ 返回目录</a></p>'
+                '</details>'
                 % (i, i, _esc(title), n_rows, body_html))
 
         html_body = (
@@ -191,7 +196,7 @@ def main():
             'max-width:960px;margin:0 auto;color:#333;">'
             '<h1 style="color:#2a5db0;">AI 资讯汇编 · %s 更新（%d 个源）</h1>'
             '<p style="color:#888;font-size:13px;">完整 wiki 版本（内网）：<a href="%s/docs/%s">%s/docs/%s</a></p>'
-            '<h2 id="toc" style="background:#f0f4fa;padding:8px 12px;">📋 目录（点击跳转）</h2>'
+            '<h2 id="toc" style="background:#f0f4fa;padding:8px 12px;">📋 目录（点击跳转；各节点击标题展开）</h2>'
             '<ol style="line-height:1.9;">%s</ol><hr/>%s'
             '</div></body></html>'
         ) % (args.digest_day, len(files), base, book, base, book,
