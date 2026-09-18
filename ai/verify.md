@@ -168,3 +168,9 @@
 - **结果**：✅ 10 篇近 7 天文章（模型对齐偏差报告框架、GPT 6 Astra、Sora 2 等），标题全部中文；修复仅标题条目的分行格式解析失败（改走简单翻译）与标题清洗。启用源 23 个。
 
 > 运行记录自 2026-09-18 起移至 `result/<日期>/summary.md`（按天归档，每次运行追加一条，要求 #54）。
+
+## V16 Anthropic 源（2026-09-18，用户指定三个入口）
+
+- **调查**：三个入口页均服务端渲染（200，页面直接含文章链接，与 OpenAI 的 403 反爬不同）；无 RSS（T2 已证）但**官方 sitemap 完整**（534 URL，含 187 条 engineering/research，最新到昨日）。
+- **方案**：复用 `type: sitemap` 适配器，按 url_include 分两个源——`anthropic-research`（/research/，近 7 天）与 `anthropic-engineering`（/engineering/，**近 45 天**：工程博客约月更，7 天窗口恒为 0；去重保证宽窗不重复）。
+- **结果**：✅ research 10 条（Claude 助力生物分子建模、多样本越狱等，标题中文）；engineering 1 条（构建高效智能体，2026-08-10）。启用源 25 个。
