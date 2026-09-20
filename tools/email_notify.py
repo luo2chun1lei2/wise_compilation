@@ -33,6 +33,15 @@ ROOT = Path(__file__).resolve().parent.parent
 SECRET_PATH = ROOT / "ai" / "secret.md"
 DB_PATH = ROOT / "data" / "wise.db"
 
+# 国际源名单（邮件按国内/国际拆两封发送——大单封触发 iCloud 等的内容过滤，要求 #63）
+FOREIGN_SOURCES = {
+    "openai-news", "openai-research", "anthropic-engineering", "anthropic-research",
+    "deepmind-blog", "google-research-blog", "blog-google-ai", "techcrunch-ai",
+    "latent-space", "simon-willison", "tldr-ai", "interconnects", "importai",
+    "mistral-news", "hackernews-top", "mit-tr", "ieee-spectrum-ai", "bair-blog",
+    "msr-blog", "github-blog", "alignment-forum", "arxiv-cs-ai",
+}
+
 try:
     import markdown as _md_mod
 except ImportError:
@@ -140,7 +149,8 @@ def main():
                       "**新文档**：[%s](%s)\n\n> 内网地址，需公司网络/VPN 打开" % (title, url))
         print("通知已发送给 %d 个收件人" % n)
     elif args.digest_day:
-        # 全文邮件：内嵌当日各源成果，顶部目录锚点导航（用户要求 #41，wiki 内网外不可达）
+        # 全文邮件：按国内/国际拆两封（要求 #63：大单封触发 iCloud 内容过滤），
+        # 每封自带目录锚点导航 + 节级/条目级二级折叠（要求 #41/#43）
         result_dir = ROOT / "result" / args.digest_day
         if not result_dir.exists():
             print("当日无成果目录：%s" % result_dir)
@@ -159,55 +169,71 @@ def main():
 
         base = sec.get("WIKI_URL", "").rstrip("/")
         book = sec.get("WIKI_BOOK_IDENTIFY", "")
-        text_parts = ["AI 资讯汇编 · %s 更新（%d 个源）" % (args.digest_day, len(files)),
-                      "wiki 当日目录：%s/docs/%s/day-%s（内网）" % (
-                          base, book, args.digest_day.replace("-", "")), ""]
-        toc_html, sections_html = [], []
-        for i, f in enumerate(files, 1):
+        day_url = "%s/docs/%s/day-%s" % (base, book, args.digest_day.replace("-", ""))
+
+        def build_section(i, f):
+            """返回 (title, n_rows, body_md, section_html)。"""
             md = f.read_text(encoding="utf-8")
             lines = md.splitlines()
             title = next((l[2:].strip() for l in lines if l.startswith("# ")), f.stem)
             body_md = "\n".join(lines[1:]).lstrip("\n")
+            # 邮件瘦身（要求 #63）：去掉"原文简介"整行（英文原文是体积大头；中文简介已在，
+            # 原文可点链接查看；result/wiki 中保留原文不动）
+            body_md = re.sub(r"^- 原文简介：.*$", "", body_md, flags=re.M)
+            # 超长中文简介截断到 320 字（全文可点链接查看）
+            body_md = re.sub(r"^(- 中文简介：)(.{320}).*$",
+                             lambda m: m.group(1) + m.group(2) + "…", body_md, flags=re.M)
             n_rows = len(re.findall(r"^### ", body_md, re.M)) or len(
                 re.findall(r"^\| \d+ ", body_md, re.M))
-            toc_html.append('<li><a href="#sec%d">%s</a>（%d 条）</li>' % (i, _esc(title), n_rows))
-            text_parts += ["=" * 46, "%d. %s（%d 条）" % (i, title, n_rows), "=" * 46, body_md]
             body_html = ""
             if _md_mod is not None:
-                folded = fold_details(body_md)
-                body_html = _md_mod.markdown(
-                    folded, extensions=["tables", "fenced_code", "md_in_html"])
-                # 邮件客户端吃内联样式：表格加边框
+                body_html = _md_mod.markdown(fold_details(body_md),
+                                             extensions=["tables", "fenced_code", "md_in_html"])
                 body_html = body_html.replace(
                     "<table>", '<table border="1" cellpadding="5" cellspacing="0" '
                                'style="border-collapse:collapse;border-color:#bbb;">')
-            # 整节折叠（用户要求 #43）：源标题为折叠条，点开才显示表格与详情；条目详情保持二级折叠
-            sections_html.append(
+            sec_html = (
                 '<details id="sec%d">'
                 '<summary style="cursor:pointer;font-size:16px;font-weight:bold;'
                 'color:#2a5db0;border-bottom:2px solid #4a90d9;padding:6px 0;">'
                 '%d. %s（%d 条）</summary>'
                 '<div style="padding-top:8px;">%s</div>'
-                '<p style="font-size:12px;"><a href="#toc">↑ 返回目录</a></p>'
-                '</details>'
+                '<p style="font-size:12px;"><a href="#toc">↑ 返回目录</a></p></details>'
                 % (i, i, _esc(title), n_rows, body_html))
+            return title, n_rows, body_md, sec_html
 
-        day_url = "%s/docs/%s/day-%s" % (base, book, args.digest_day.replace("-", ""))
-        html_body = (
-            '<html><body><div style="font-family:-apple-system,\'Microsoft YaHei\',sans-serif;'
-            'max-width:960px;margin:0 auto;color:#333;">'
-            '<h1 style="color:#2a5db0;">AI 资讯汇编 · %s 更新（%d 个源）</h1>'
-            '<p style="color:#888;font-size:13px;">完整 wiki 版本（内网）：<a href="%s">%s</a></p>'
-            '<h2 id="toc" style="background:#f0f4fa;padding:8px 12px;">📋 目录（点击跳转；各节点击标题展开）</h2>'
-            '<ol style="line-height:1.9;">%s</ol><hr/>%s'
-            '</div></body></html>'
-        ) % (args.digest_day, len(files), day_url, day_url,
-             "".join(toc_html), "".join(sections_html))
-        text_body = "\n\n".join(text_parts)
-        sent = send_mail(sec, "【AI 资讯汇编】%s 更新（%d 个源）" % (args.digest_day, len(files)),
-                          text_body, html_body=html_body)
-        print("已向 %d 个收件人发送全文汇总邮件：%d 个源，HTML %.0fKB"
-              % (sent, len(files), len(html_body) / 1024.0))
+        def send_part(part_files, tag):
+            toc_html, sections_html, text_parts = [], [], [
+                "AI 资讯汇编%s · %s 更新（%d 个源）" % (tag, args.digest_day, len(part_files)),
+                "wiki 当日目录：%s（内网）" % day_url, ""]
+            for i, f in enumerate(part_files, 1):
+                title, n_rows, body_md, sec_html = build_section(i, f)
+                toc_html.append('<li><a href="#sec%d">%s</a>（%d 条）</li>' % (i, _esc(title), n_rows))
+                sections_html.append(sec_html)
+                text_parts += ["=" * 46, "%d. %s（%d 条）" % (i, title, n_rows), "=" * 46, body_md]
+            html_body = (
+                '<html><body><div style="font-family:-apple-system,\'Microsoft YaHei\',sans-serif;'
+                'max-width:960px;margin:0 auto;color:#333;">'
+                '<h1 style="color:#2a5db0;">AI 资讯汇编%s · %s 更新（%d 个源）</h1>'
+                '<p style="color:#888;font-size:13px;">完整 wiki 版本（内网）：<a href="%s">%s</a></p>'
+                '<h2 id="toc" style="background:#f0f4fa;padding:8px 12px;">📋 目录（点击跳转；各节点击标题展开）</h2>'
+                '<ol style="line-height:1.9;">%s</ol><hr/>%s'
+                '</div></body></html>'
+            ) % (tag, args.digest_day, len(part_files), day_url, day_url,
+                 "".join(toc_html), "".join(sections_html))
+            n = send_mail(sec, "【AI 资讯汇编%s】%s 更新（%d 个源）" % (
+                tag, args.digest_day, len(part_files)),
+                "\n\n".join(text_parts), html_body=html_body)
+            print("  %s：%d 个源，HTML %.0fKB → %d 收件人" % (
+                tag or "全部", len(part_files), len(html_body) / 1024.0, n))
+
+        intl = [f for f in files if f.stem in FOREIGN_SOURCES]
+        dom = [f for f in files if f.stem not in FOREIGN_SOURCES]
+        print("拆分发送：国内 %d 源 / 国际 %d 源" % (len(dom), len(intl)))
+        if dom:
+            send_part(dom, "·国内")
+        if intl:
+            send_part(intl, "·国际")
 
 
 if __name__ == "__main__":

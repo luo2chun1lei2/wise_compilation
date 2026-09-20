@@ -207,3 +207,13 @@
 - **接入 14 源全部试跑通过**（109 条）：国际 6（MIT TR 9/过滤、IEEE Spectrum AI 10、BAIR 10、MSR 10、GitHub Blog 5/过滤、Alignment Forum 10）+ 国内 8（雷锋网 10、开源中国 10、爱范儿 6/过滤、极客公园 10、钛媒体 6/过滤、IT之家 9/过滤自 60、Solidot 2/过滤、少数派 2/过滤）。
 - **排除/暂缓**：SyncedReview（2025-08 停更）；OpenAlex/Crossref（与 arXiv 重叠）；Semantic Scholar（无 key 限流）；Stack Exchange（可接未接，待确认）。
 - **新能力**：rss `ai_filter` 标题关键词过滤（零 LLM）+ 空结果占位渲染。启用源 **46 个**；日用量预估升至 ~30 万 tokens、运行 ~75-90 分钟（包月内，留待有用性评价再裁剪）。
+
+## V22 iCloud 拒收处置与邮件瘦身（2026-09-20）
+
+- **现象**：用户手动转发汇总邮件至 icloud 被 Apple 服务器 SMTP 层拒收（`554 5.7.1 [CS01]`，内容策略）——大体积 HTML+海量链接是典型群发特征；另该日 06 时 VPN 抖动致 5 个代理源失败。
+- **处置**：
+  1. **邮件拆分**：--digest-day 按国内/国际拆两封（FOREIGN_SOURCES 名单），各自带目录+折叠；
+  2. **邮件瘦身**：去掉详情"原文简介"行（英文原文是体积大头；中文简介保留，原文点链接看；result/wiki 不变）+ 中文简介截断 320 字；实测 09-20：国内 418→213KB、国际 990→**118KB**（低于 Gmail 102KB 截断线附近）；
+  3. **失败源重试**：run_pipeline 新增阶段 1.5——采集失败的源等待 30s 后统一重试一轮（应对 06 时 VPN 抖动）；
+  4. 已发小测试信验证通道（待用户确认 icloud 是否收到）。
+- **建议用户侧**：在 icloud 把 `chunlei.luo@goldenrivertek.com` 加入通讯录（Apple 对联系人来件显著放宽过滤）。

@@ -80,6 +80,28 @@ def main():
                             "" if ok else " | " + out[-300:].replace("\n", " ")))
     collect_ok = sum(1 for _, ok, _ in results if ok)
 
+    # ---- 阶段 1.5：失败源统一重试一轮（06 时 VPN/网络抖动常在片刻后自愈，要求 #63） ----
+    failed = [(n, f) for n, ok, f in results if not ok]
+    if failed:
+        w("阶段1.5 重试失败源 ×%d（等待 30s 让网络/VPN 恢复）" % len(failed))
+        time.sleep(30)
+        retried = []
+        for name, _f in failed:
+            try:
+                code, out = sh([sys.executable, str(ROOT / "tools" / "gh_ai_top10.py"),
+                                "--source", name], TIMEOUT_COLLECT)
+            except subprocess.TimeoutExpired:
+                code, out = 124, "超时"
+            f2 = ROOT / "result" / day_str / ("%s.md" % name)
+            ok2 = code == 0 and f2.exists()
+            retried.append((name, ok2))
+            w("  %-28s %s%s" % (name, "OK(重试)" if ok2 else "FAIL",
+                                "" if ok2 else " | " + out[-200:].replace("\n", " ")))
+        results = [(n, ok or dict(retried).get(n, False), f if ok else
+                    (ROOT / "result" / day_str / ("%s.md" % n)) if dict(retried).get(n, False) else f)
+                   for n, ok, f in results]
+        collect_ok = sum(1 for _, ok, _ in results if ok)
+
     # ---- 阶段 2：发布 wiki（按日期分组） ----
     w("阶段2 发布 wiki")
     published = []
