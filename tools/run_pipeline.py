@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 from datetime import date, datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import yaml
@@ -59,7 +60,38 @@ def main():
     # ---- 阶段 1：采集（全部启用源） ----
     cfg = yaml.safe_load(SOURCES.read_text(encoding="utf-8")) or {}
     enabled = [s for s in cfg.get("sources") or [] if s.get("enabled", True)]
-    sources = [s["name"] for s in enabled]
+
+    # 源级采集间隔（ADR-0021）：interval 天未到则跳过（成功才更新 last_fetch_at）
+    def due_entries(all_entries):
+        conn = sqlite3.connect(str(ROOT / "data" / "wise.db"))
+        conn.execute("CREATE TABLE IF NOT EXISTS sources("
+                     "id INTEGER PRIMARY KEY, name TEXT UNIQUE, type TEXT, url TEXT,"
+                     "last_fetch_at TEXT, fail_count INTEGER DEFAULT 0)")
+        rows = dict((r[0], r[1]) for r in conn.execute(
+            "SELECT name, last_fetch_at FROM sources"))
+        conn.close()
+        today = date.today()
+        out, skipped = [], []
+        for s in all_entries:
+            interval = int(s.get("interval") or 1)
+            last = rows.get(s["name"])
+            if interval > 1 and last:
+                try:
+                    last_d = datetime.strptime(last[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    last_d = None
+                if last_d and (today - last_d).days < interval:
+                    skipped.append((s["name"], interval, last[:10]))
+                    continue
+            out.append(s)
+        return out, skipped
+
+    due, skipped = due_entries(enabled)
+    for name, itv, last in skipped:
+        w("  %-28s 跳过（间隔 %d 天未到，上次 %s）" % (name, itv, last))
+    if skipped:
+        w("间隔生效：%d 个源到期采集，%d 个源跳过" % (len(due), len(skipped)))
+    sources = [s["name"] for s in due]
     if any(s.get("proxy") for s in enabled):
         sys.path.insert(0, str(ROOT / "tools"))
         from gh_ai_top10 import ensure_vpn
@@ -79,6 +111,16 @@ def main():
         w("  %-28s %s%s" % (name, "OK" if ok else "FAIL",
                             "" if ok else " | " + out[-300:].replace("\n", " ")))
     collect_ok = sum(1 for _, ok, _ in results if ok)
+    # 成功的源更新 last_fetch_at（失败不消耗间隔，ADR-0021）
+    if collect_ok:
+        conn = sqlite3.connect(str(ROOT / "data" / "wise.db"))
+        now_s = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for name, ok, _f in results:
+            if ok:
+                conn.execute("INSERT OR IGNORE INTO sources(name,type) VALUES(?, '')", (name,))
+                conn.execute("UPDATE sources SET last_fetch_at=? WHERE name=?", (now_s, name))
+        conn.commit()
+        conn.close()
 
     # ---- 阶段 1.5：失败源统一重试一轮（06 时 VPN/网络抖动常在片刻后自愈，要求 #63） ----
     failed = [(n, f) for n, ok, f in results if not ok]

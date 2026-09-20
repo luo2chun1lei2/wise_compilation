@@ -70,7 +70,7 @@ python3 tools/schedule.py --remove            # 移除定时
 
 | 文件 | 作用 | 常用操作 |
 |---|---|---|
-| `sources.yaml` | 信息源清单 | 加源：新增一项 `name/type/url|query/topic/enabled`；不支持的类型会跳过并告警，走「调查→适配」流程 |
+| `sources.yaml` | 信息源清单 | 加源：新增一项 `name/type/url|query/topic/enabled`；不支持的类型会跳过并告警；`interval: N` 设置采集间隔天数（默认 1，ADR-0021 分档 1/3/7）；`proxy: true` 走 VPN 代理 |
 | `channels.yaml` | 分发通道 | 目前启用 `internal-wiki` 与 `email-colleagues`；微信类通道因内部信息保密暂缓（ADR-0017） |
 | `topics.yaml` | 专题定义与归类关键词 | 加专题/关键词 |
 | `settings.yaml` | 运行参数 | 并发、LLM 限速、翻译字节上限（默认 5000B）、润色开关 |

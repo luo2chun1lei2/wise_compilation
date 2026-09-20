@@ -653,12 +653,20 @@ def init_db():
       id INTEGER PRIMARY KEY, source_id INTEGER, url_norm TEXT UNIQUE,
       title TEXT, url TEXT, summary TEXT, summary_zh TEXT, summary_from TEXT,
       lang TEXT, stars INTEGER, published_at TEXT, collected_at TEXT,
-      status TEXT DEFAULT 'new', meta TEXT);
+      status TEXT DEFAULT 'new', meta TEXT, title_disp TEXT);
     CREATE TABLE IF NOT EXISTS runs(
       id INTEGER PRIMARY KEY, kind TEXT, started_at TEXT, finished_at TEXT,
       status TEXT, stats TEXT, error TEXT);
     """)
     return conn
+
+
+def migrate(conn):
+    """老库补列（幂等）。"""
+    try:
+        conn.execute("ALTER TABLE items ADD COLUMN title_disp TEXT")
+    except sqlite3.OperationalError:
+        pass  # 列已存在
 
 
 def store(conn, entries):
@@ -669,11 +677,12 @@ def store(conn, entries):
     for e in entries:
         cur = conn.execute(
             "INSERT OR IGNORE INTO items(source_id,url_norm,title,url,summary,summary_zh,"
-            "summary_from,lang,stars,published_at,collected_at,meta) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            "summary_from,lang,stars,published_at,collected_at,meta,title_disp) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (src_id, e["url_norm"], e["title"], e["url"], e["summary"], e["summary_zh"],
              e["summary_from"], e["lang"], e["stars"], e["published_at"],
-             e["collected_at"], json.dumps(e["meta"], ensure_ascii=False)))
+             e["collected_at"], json.dumps(e["meta"], ensure_ascii=False),
+             e.get("title_disp")))
         n += cur.rowcount
     conn.commit()
     return n
@@ -945,12 +954,28 @@ def main():
         repos = search_repos(args.query, args.per_page, token)
     print("      命中 %d 个项目" % len(repos))
 
+    # 翻译缓存（ADR-0021）：url_norm 已有译文直接复用，仅新条目调 LLM
+    cache_conn = init_db()
+    migrate(cache_conn)
+
+    def cache_lookup(url_norm):
+        row = cache_conn.execute(
+            "SELECT title_disp, summary_zh, lang FROM items WHERE url_norm=?",
+            (url_norm,)).fetchone()
+        if row and row[1]:
+            return row[0] or "", row[1], row[2] or "cache"
+        return None
+
     entries = []
     for idx, repo in enumerate(repos, 1):
         print("[2/5][3/5] #%d %s" % (idx, repo["full_name"]))
         summary, src_from = summary_cascade(repo, token)
         title_disp = repo["full_name"]
-        if args.skip_translate:
+        hit = None if args.skip_translate else cache_lookup(repo["html_url"])
+        if hit:
+            title_disp, summary_zh, lang = (hit[0] or repo["full_name"]), hit[1], hit[2]
+            summary = summary or summary_zh
+        elif args.skip_translate:
             summary_zh, lang = summary, "zh-skip(--skip-translate)"
         elif repo.get("en_article"):
             title_disp, summary_zh, lang = translate_article(repo["full_name"], summary, secret)

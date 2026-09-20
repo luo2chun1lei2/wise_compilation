@@ -5,6 +5,7 @@
 sources:
   # ---- 用户清单补充（2026-09-18，T17）：国际 RSS×6 ----
   - name: mit-tr
+    interval: 3
     type: rss
     url: https://www.technologyreview.com/feed/
     limit: 10
@@ -13,6 +14,7 @@ sources:
     enabled: true
 
   - name: ieee-spectrum-ai
+    interval: 3
     type: rss
     url: https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss
     limit: 10
@@ -20,6 +22,7 @@ sources:
     enabled: true          # AI 专属频道，无需过滤
 
   - name: bair-blog
+    interval: 7
     type: rss
     url: https://bair.berkeley.edu/blog/feed.xml
     limit: 10
@@ -27,6 +30,7 @@ sources:
     enabled: true          # Berkeley 研究博客（约月更）
 
   - name: msr-blog
+    interval: 3
     type: rss
     url: https://www.microsoft.com/en-us/research/feed/
     limit: 10
@@ -34,6 +38,7 @@ sources:
     enabled: true
 
   - name: github-blog
+    interval: 3
     type: rss
     url: https://github.blog/feed/
     limit: 10
@@ -42,6 +47,7 @@ sources:
     enabled: true
 
   - name: alignment-forum
+    interval: 3
     type: rss
     url: https://www.alignmentforum.org/feed.xml
     limit: 10
@@ -140,6 +146,7 @@ sources:
   # OpenAI 研究板块（用户指定 2026-09-18）：无 RSS、HTML 反爬 → 走官方 sitemap（URL+lastmod），
   # 标题由 slug 派生并 LLM 润色；只收近 7 天；与 news 源共用 /index/ URL 空间，自动去重
   - name: openai-research
+    interval: 7
     type: sitemap
     url: https://openai.com/sitemap.xml/research/
     days: 7
@@ -152,6 +159,7 @@ sources:
   # Anthropic（用户指定 2026-09-18）：无 RSS 但页面 SSR + 官方 sitemap（534 URL，含 187 条
   # engineering/research，最新到昨日）→ 复用 sitemap 适配器，近 7 天
   - name: anthropic-engineering
+    interval: 7
     type: sitemap
     url: https://www.anthropic.com/sitemap.xml
     days: 45             # 工程博客约月更，窗口放宽；去重保证不重复收录
@@ -162,6 +170,7 @@ sources:
     enabled: true
 
   - name: anthropic-research
+    interval: 7
     type: sitemap
     url: https://www.anthropic.com/sitemap.xml
     days: 7
@@ -190,6 +199,7 @@ sources:
 
   # Google 官方博客 AI 频道（用户产品/技术动态，走代理）
   - name: blog-google-ai
+    interval: 3
     type: rss
     url: https://blog.google/innovation-and-ai/technology/ai/rss/
     limit: 10
@@ -205,6 +215,7 @@ sources:
     enabled: true
 
   - name: latent-space
+    interval: 3
     type: rss
     url: https://www.latent.space/feed
     limit: 10
@@ -226,6 +237,7 @@ sources:
     enabled: true
 
   - name: interconnects
+    interval: 3
     type: rss
     url: https://www.interconnects.ai/feed
     limit: 10
@@ -242,6 +254,7 @@ sources:
     enabled: true
 
   - name: importai
+    interval: 3
     type: rss
     url: https://importai.substack.com/feed
     limit: 10
@@ -353,6 +366,7 @@ sources:
   # ---- GitHub（已验证，T3/ADR-0012；四个 topic 2026-09-16 实测命中充足）----
   # mode: search=组合查询取热门 | trending=解析 github.com/trending 页（ADR-0013）| repo=跟踪指定仓库
   - name: github-trending-monthly
+    interval: 7           # 月度快照，周采足够（ADR-0021）
     type: github
     mode: trending              # 每行自带"本期新增 star"增量数据
     since: monthly              # daily | weekly | monthly
@@ -361,6 +375,7 @@ sources:
     enabled: true
 
   - name: github-codex
+    interval: 3
     type: github
     mode: search
     query: "topic:codex stars:>50 pushed:>now-30d"
@@ -369,6 +384,7 @@ sources:
     enabled: true
 
   - name: github-artificial-intelligence
+    interval: 3
     type: github
     mode: search
     query: "topic:artificial-intelligence stars:>500 pushed:>now-7d"
@@ -377,6 +393,7 @@ sources:
     enabled: true
 
   - name: github-agent-harness
+    interval: 3
     type: github
     mode: search
     query: "topic:agent-harness stars:>5 pushed:>now-100d"
@@ -385,6 +402,7 @@ sources:
     enabled: true
 
   - name: github-ai-agents
+    interval: 3
     type: github
     mode: search
     query: "topic:ai-agents stars:>300 pushed:>now-7d"

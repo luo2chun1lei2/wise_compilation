@@ -476,6 +476,17 @@ GitHub **没有官方 Trending API**（trending 页面仅为 HTML，只能爬取
 
 
 
+### ADR-0021: 翻译缓存 + 源级采集间隔（消重与降本）
+
+- **状态**：已接受（2026-09-20，用户确认方案后实现）
+- **背景**：日采集存在两类浪费——①中低频源（周更/月更）同一批条目每天重复进邮件；②重复条目每天被重新翻译（DB 去重在翻译之后）。
+- **决策（三层）**：
+  1. **翻译缓存**：采集时先查 `items` 表，`url_norm` 已有 `summary_zh/title_disp` 的条目直接复用（lang=cache），仅新条目调 LLM；`items` 增列 `title_disp`；
+  2. **源级间隔 `interval`**（sources.yaml，默认 1）：run_pipeline 按 `sources.last_fetch_at` 判断到期，未到期跳过（成功才更新 last_fetch_at，失败不消耗间隔）；手工 `--source` 不受间隔限制；
+  3. **邮件自动跟随**：未到期的源当日无产物 → 不进邮件；到期但无新条目 → 占位"无更新"。
+- **间隔分档（判断标准：间隔 ≈ 该源内容更新一轮的周期）**：日更=高频媒体与热榜；3 日=周更型 newsletter/媒体 + GitHub topic 榜 + blog.google；7 日=BAIR/Anthropic Eng/OpenAI Research/GitHub Trending 月榜/Anthropic Research。
+- **后果**：邮件从"全量日快照"变为"当日真正新增"；LLM 日调用量预计降一半以上；低频源内容不再天天重印。间隔可逐源在 config 调整。
+
 ### ADR-0020: T2 信息源接入方向与准入三原则（待调查对象清单）
 
 - **状态**：已接受（2026-09-18，用户指示）
