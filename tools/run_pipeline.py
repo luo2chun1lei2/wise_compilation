@@ -94,9 +94,18 @@ def main():
     sources = [s["name"] for s in due]
     if any(s.get("proxy") for s in enabled):
         sys.path.insert(0, str(ROOT / "tools"))
-        from gh_ai_top10 import ensure_vpn
+        from gh_ai_top10 import ensure_vpn, proxy_alive
         if not ensure_vpn():
             w("⚠️ VPN 未就绪，代理类源将失败（其余源不受影响）")
+        else:
+            # 代理连通性预检（ADR-0023）：抖动期常见"进程在但握手死"，实测通了才开始采集
+            waited = 0
+            while waited < 300 and not proxy_alive():
+                w("  代理握手不通（已等 %ds），等抖动恢复再开跑…" % waited)
+                time.sleep(30)
+                waited += 30
+            if waited:
+                w("  代理连通%s（累计等待 %ds）" % ("OK" if proxy_alive() else "仍不通，代理类源可能失败", waited))
     w("阶段1 采集：%d 个源 %s" % (len(sources), sources))
     results = []  # (source, ok, file)
     for name in sources:
@@ -122,13 +131,16 @@ def main():
         conn.commit()
         conn.close()
 
-    # ---- 阶段 1.5：失败源统一重试一轮（06 时 VPN/网络抖动常在片刻后自愈，要求 #63） ----
-    failed = [(n, f) for n, ok, f in results if not ok]
-    if failed:
-        w("阶段1.5 重试失败源 ×%d（等待 30s 让网络/VPN 恢复）" % len(failed))
-        time.sleep(30)
-        retried = []
-        for name, _f in failed:
+    # ---- 阶段 1.5：失败源多轮重试（要求 #63/#68：抖动常几分钟自愈，单轮 30s 不够） ----
+    for rnd, wait_s in enumerate([120, 240, 360], 1):  # 2/4/6 分钟递增，最多 3 轮
+        failed_names = [n for n, ok, _ in results if not ok]
+        if not failed_names:
+            break
+        w("阶段1.5 第%d轮重试失败源 ×%d（先等 %ds 让网络/VPN 恢复）" % (
+            rnd, len(failed_names), wait_s))
+        time.sleep(wait_s)
+        status = {n: ok for n, ok, _ in results}
+        for name in failed_names:
             try:
                 code, out = sh([sys.executable, str(ROOT / "tools" / "gh_ai_top10.py"),
                                 "--source", name], TIMEOUT_COLLECT)
@@ -136,12 +148,12 @@ def main():
                 code, out = 124, "超时"
             f2 = ROOT / "result" / day_str / ("%s.md" % name)
             ok2 = code == 0 and f2.exists()
-            retried.append((name, ok2))
-            w("  %-28s %s%s" % (name, "OK(重试)" if ok2 else "FAIL",
+            status[name] = ok2
+            w("  %-28s %s%s" % (name, "OK(第%d轮)" % rnd if ok2 else "FAIL",
                                 "" if ok2 else " | " + out[-200:].replace("\n", " ")))
-        results = [(n, ok or dict(retried).get(n, False), f if ok else
-                    (ROOT / "result" / day_str / ("%s.md" % n)) if dict(retried).get(n, False) else f)
-                   for n, ok, f in results]
+        results = [(n, status[n],
+                    f if not status[n] else ROOT / "result" / day_str / ("%s.md" % n))
+                   for n, _ok, f in results]
         collect_ok = sum(1 for _, ok, _ in results if ok)
 
     # ---- 阶段 2：发布 wiki（按日期分组） ----

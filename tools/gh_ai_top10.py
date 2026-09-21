@@ -90,6 +90,25 @@ def load_proxy():
         return ""
 
 
+PROXY_PROBE_URL = "https://www.google.com/generate_204"
+
+
+def proxy_alive(timeout=8):
+    """代理连通性实测：过代理访问 google generate_204（返回 204 即通，ADR-0023）。
+
+    与 ensure_vpn 的区别：ensure_vpn 只查 sqd 进程存在，抖动期常见"进程在但握手死"，
+    本函数走一次真实代理请求判断通道是否可用。
+    """
+    url = load_proxy()
+    if not url:
+        return False
+    try:
+        r = requests.get(PROXY_PROBE_URL, proxies={"http": url, "https": url}, timeout=timeout)
+        return r.status_code == 204
+    except requests.RequestException:
+        return False
+
+
 def load_secret():
     kv = {}
     for line in SECRET_PATH.read_text(encoding="utf-8").splitlines():
