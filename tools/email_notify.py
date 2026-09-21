@@ -62,10 +62,11 @@ DRY_RUN = False  # --dry-run：只渲染到 data/preview/，不投递（验证�
 
 
 def fold_details(body_md):
-    """把每个 '### N.' 条目块折叠为 <details><summary>（用户要求 #42；ADR-0022 卡片式布局）。
+    """把每个 '### N.' 条目块折叠为 <details><summary>（要求 #42；ADR-0022 卡片式布局）。
 
     纯 HTML 无 JS：支持的客户端点击展开；不支持的自动全展开（等价于原样式，零损失）。
-    标题中的 markdown 链接转为 <a>；「成本与运行统计」保留在折叠之外。
+    折叠条标题不带链接（要求 #67：标题链接与"点标题展开"手势冲突，手机易误点跳转），
+    链接移到展开内容首行「- 原文链接：[打开原文](url)」；统计表保留在折叠之外。
     """
     parts = re.split(r"^### ", body_md, flags=re.M)
     if len(parts) < 2:
@@ -81,11 +82,13 @@ def fold_details(body_md):
         if "## 成本与运行统计" in content:  # 统计表跟在最后一个条目后，保持在折叠外
             content, after = content.split("## 成本与运行统计", 1)
             tail = "## 成本与运行统计" + after
-        title_html = re.sub(r"\[([^\]]+)\]\(([^)]+)\)",
-                            r'<a href="\2">\1</a>', _esc(title))
+        m = re.search(r"\[([^\]]+)\]\(([^)]+)\)", title)
+        if m:  # 标题里的链接摘出：折叠条留纯文本，链接放展开内容首行（要求 #67）
+            title = title[:m.start()] + m.group(1) + title[m.end():]
+            content = "- 原文链接：[打开原文](%s)\n%s" % (m.group(2), content)
         chunks.append(
             '<details markdown="1"><summary style="cursor:pointer;"><b>%s</b></summary>\n\n%s\n\n</details>'
-            % (title_html, content.strip()))
+            % (_esc(title), content.strip()))
     return head + "\n\n".join(chunks) + "\n\n" + tail
 
 
