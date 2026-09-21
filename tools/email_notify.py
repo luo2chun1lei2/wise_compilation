@@ -58,24 +58,35 @@ def load_secret():
     return kv
 
 
+DRY_RUN = False  # --dry-run：只渲染到 data/preview/，不投递（验证用）
+
+
 def fold_details(body_md):
-    """把 '## 详情' 下的每个 '### ' 小节折叠为 <details><summary>（用户要求 #42）。
+    """把每个 '### N.' 条目块折叠为 <details><summary>（用户要求 #42；ADR-0022 卡片式布局）。
 
     纯 HTML 无 JS：支持的客户端点击展开；不支持的自动全展开（等价于原样式，零损失）。
+    标题中的 markdown 链接转为 <a>；「成本与运行统计」保留在折叠之外。
     """
-    if "## 详情" not in body_md:
+    parts = re.split(r"^### ", body_md, flags=re.M)
+    if len(parts) < 2:
         return body_md
-    head, detail = body_md.split("## 详情", 1)
-    parts = re.split(r"^### ", detail, flags=re.M)
-    chunks = []
+    head = parts[0]
+    if head.rstrip().endswith("## 详情"):  # 旧版格式残留的段标题，去掉
+        head = head.rstrip()[: -len("## 详情")].rstrip("\n") + "\n\n"
+    chunks, tail = [], ""
     for seg in parts[1:]:
         lines = seg.split("\n", 1)
         title = lines[0].strip()
         content = lines[1].strip("\n") if len(lines) > 1 else ""
+        if "## 成本与运行统计" in content:  # 统计表跟在最后一个条目后，保持在折叠外
+            content, after = content.split("## 成本与运行统计", 1)
+            tail = "## 成本与运行统计" + after
+        title_html = re.sub(r"\[([^\]]+)\]\(([^)]+)\)",
+                            r'<a href="\2">\1</a>', _esc(title))
         chunks.append(
             '<details markdown="1"><summary style="cursor:pointer;"><b>%s</b></summary>\n\n%s\n\n</details>'
-            % (_esc(title), content))
-    return head + "## 详情\n\n" + "\n\n".join(chunks) + "\n"
+            % (title_html, content.strip()))
+    return head + "\n\n".join(chunks) + "\n\n" + tail
 
 
 def build_mime(subject, text_body, html_body=None):
@@ -94,6 +105,14 @@ def build_mime(subject, text_body, html_body=None):
 
 
 def send_mail(sec, subject, md_content, html_body=None):
+    if DRY_RUN:  # 验证模式：渲染结果落 data/preview/，不投递
+        out_dir = ROOT / "data" / "preview"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r"[^\w.-]+", "_", subject) or "mail"
+        (out_dir / ("%s.html" % safe)).write_text(
+            html_body or "", encoding="utf-8")
+        (out_dir / ("%s.txt" % safe)).write_text(md_content, encoding="utf-8")
+        return len([x for x in re.split(r"[,;，；]", sec.get("EMAIL_TO", "")) if x.strip()])
     host = sec.get("EMAIL_SMTP_HOST", "")
     if not host:
         print("未配置 EMAIL_SMTP_HOST（ai/secret.md）。发件服务器地址可从邮件客户端设置或 IT 获取。")
@@ -133,7 +152,11 @@ def main():
     ap.add_argument("--test", action="store_true")
     ap.add_argument("--notify", nargs=2, metavar=("TITLE", "URL"))
     ap.add_argument("--digest-day", help="汇总 wise.db 中当日 mindoc-publish 记录")
+    ap.add_argument("--dry-run", action="store_true", help="只渲染到 data/preview/，不发送")
     args = ap.parse_args()
+
+    global DRY_RUN
+    DRY_RUN = args.dry_run
 
     sec = load_secret()
     base = sec.get("WIKI_URL", "").rstrip("/")

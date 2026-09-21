@@ -750,75 +750,63 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
         "- 生成时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M"),
         "- 数据来源：%s" % data_src,
         "- 查询条件：`%s`" % query,
-        "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布", "",
+        "- 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）", "",
     ]
-    has_delta = any(e["meta"].get("period_delta") for e in entries)
 
-    def disp_title(e):
-        t = e.get("title_disp") or e["title"]
-        return t if len(t) <= 36 else t[:35] + "…"
+    # 卡片式条目（ADR-0022）：每个条目一个「### N. [标题](链接)（指标）」块，
+    # 下挂 中文简介 / 原文简介 / 属性 行——取代旧「宽表格 + ## 详情」双段（重复且手机上过宽，要求 #66）
+    def _int(x):
+        try:
+            return int(x)
+        except (TypeError, ValueError):
+            return 0
 
-    if is_feed:
-        lines += ["| 排名 | 文章 | 发布时间 | 简介 |", "|" + "---|" * 4]
-        for i, e in enumerate(entries, 1):
-            lines.append("| %d | [%s](%s) | %s | %s |" % (
-                i, cell(disp_title(e)), e["url"], (e["published_at"][:16] or "-").replace("T", " "),
-                cell(e["summary_zh"].split("\n")[0][:110])))
-    elif is_zhihu_col:
-        def _int(x):
-            try:
-                return int(x)
-            except (TypeError, ValueError):
-                return 0
-        lines += ["| 排名 | 文章 | 专栏 | 赞 | 评论 | 中文简介 |", "|" + "---|" * 6]
-        for i, e in enumerate(entries, 1):
-            m = e["meta"]
-            lines.append("| %d | [%s](%s) | %s | %s | %s | %s |" % (
-                i, cell(disp_title(e)), e["url"], cell(m.get("column") or "-"),
-                format(_int(m.get("voteup")), ","), format(_int(m.get("comments")), ","),
-                cell(e["summary_zh"].split("\n")[0][:100])))
-    elif is_zhihu:
-        lines += ["| 排名 | 话题 | 热度 | 回答 | 中文简介 |", "|" + "---|" * 5]
-        for i, e in enumerate(entries, 1):
-            ans = e["meta"].get("answers") or 0
-            lines.append("| %d | [%s](%s) | %s | %s | %s |" % (
-                i, cell(disp_title(e)), e["url"], e["meta"].get("heat") or "-",
-                format(ans, ","), cell(e["summary_zh"].split("\n")[0][:120])))
-    else:
-        lines += ["| 排名 | 项目 | Stars | %s语言 | 中文简介 |" % ("本期新增 | " if has_delta else ""),
-                  "|" + "---|" * (6 if has_delta else 5)]
-        for i, e in enumerate(entries, 1):
-            brief = e["summary_zh"].split("\n")[0][:120]
-            lang_col = e["meta"].get("language") or "-"
-            if has_delta:
-                delta = (e["meta"].get("period_delta", "")
-                         .replace(" stars this month", "★/月")
-                         .replace(" stars this week", "★/周")
-                         .replace(" stars today", "★/日")) or "-"
-                lines.append("| %d | [%s](%s) | %s | %s | %s | %s |" % (
-                    i, cell(disp_title(e)), e["url"], format(e["stars"], ","), delta, lang_col, cell(brief)))
-            else:
-                lines.append("| %d | [%s](%s) | %s | %s | %s |" % (
-                    i, cell(disp_title(e)), e["url"], format(e["stars"], ","), lang_col, cell(brief)))
-    lines += ["", "## 详情", ""]
-    for i, e in enumerate(entries, 1):
+    def link_text(t):
+        return (t or "").replace("[", "［").replace("]", "］").replace("\n", " ")
+
+    def heading_metric(e):
+        m = e["meta"]
         if is_feed:
-            metric = (e["published_at"][:16] or "—").replace("T", " ")
-        elif is_zhihu_col:
-            metric = "%s 赞 · %s 评论" % (format(_int(e["meta"].get("voteup")), ","),
-                                          format(_int(e["meta"].get("comments")), ","))
-        elif is_zhihu:
-            metric = e["meta"].get("heat") or "-"
-        else:
-            metric = "%s★" % format(e["stars"], ",")
-        lines += ["### %d. %s（%s）" % (i, e.get("title_disp") or e["title"], metric), ""]
-        lines.append("- 链接：%s" % e["url"])
-        lines.append("- 主题：%s" % ", ".join(e["meta"].get("topics", [])[:8]))
-        lines.append("- 最近推送：%s" % (e["published_at"][:10] or "—"))
-        lines.append("- 摘要来源：%s | 翻译：%s" % (e["summary_from"], e["lang"]))
-        lines.append("- 中文简介：%s" % e["summary_zh"].replace("\n", " "))
-        if e["lang"] != "zh-skip":
-            lines.append("- 原文简介：%s" % e["summary"].replace("\n", " "))
+            return "发布 %s" % ((e["published_at"][:16] or "—").replace("T", " "))
+        if is_zhihu:
+            heat = m.get("heat") or "-"
+            return heat if "热度" in heat else "热度 %s" % heat
+        if is_zhihu_col:
+            word = ("分", "评") if m.get("column") == "Hacker News" else ("赞", "评论")
+            return "%s %s · %s %s" % (format(_int(m.get("voteup")), ","), word[0],
+                                      format(_int(m.get("comments")), ","), word[1])
+        segs = ["%s★" % format(e["stars"], ",")]
+        delta = (m.get("period_delta") or "").replace(" stars this month", "★/月") \
+            .replace(" stars this week", "★/周").replace(" stars today", "★/日")
+        if delta:
+            segs.append("+" + delta)
+        if m.get("language"):
+            segs.append(m["language"])
+        return " · ".join(segs)
+
+    def attr_segs(e):
+        m = e["meta"]
+        segs = []
+        if is_zhihu_col and m.get("column"):
+            segs.append("来源：%s" % m["column"])
+        if is_zhihu:
+            segs.append("回答 %s" % format(_int(m.get("answers")), ","))
+        if m.get("topics"):
+            segs.append("主题：%s" % ", ".join(m["topics"][:8]))
+        if not is_feed and e["published_at"][:10]:
+            segs.append("推送：%s" % e["published_at"][:10])
+        segs.append("摘要：%s · 翻译：%s" % (e["summary_from"], e["lang"]))
+        return segs
+
+    for i, e in enumerate(entries, 1):
+        lines += ["### %d. [%s](%s)（%s）" % (
+            i, link_text(e.get("title_disp") or e["title"]), e["url"], heading_metric(e)), ""]
+        lines.append("- 中文简介：%s" % cell(e["summary_zh"]))
+        if e["lang"] != "zh-skip" and (e["summary"] or "").strip():
+            lines.append("- 原文简介：%s" % cell(e["summary"]))
+        segs = attr_segs(e)
+        if segs:
+            lines.append("- %s" % " · ".join(segs))
         lines.append("")
     lines += ["## 成本与运行统计", "",
               "| 项目 | 数值 | 来源 |", "|---|---|---|",
