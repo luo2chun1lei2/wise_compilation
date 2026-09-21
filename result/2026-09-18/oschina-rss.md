@@ -1,6 +1,6 @@
 # OSCHINA 社区最新新闻（2026-09-18）
 
-- 生成时间：2026-09-18 18:43
+- 生成时间：2026-09-18 18:52
 - 数据来源：RSS 订阅（https://www.oschina.net/news/rss，最新 N 条）
 - 查询条件：`RSS：https://www.oschina.net/news/rss`
 - 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布

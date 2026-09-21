@@ -1,6 +1,6 @@
 # IEEE Spectrum（2026-09-18）
 
-- 生成时间：2026-09-18 18:40
+- 生成时间：2026-09-18 18:49
 - 数据来源：RSS 订阅（https://spectrum.ieee.org/feeds/topic/artificial-intelligenc，最新 N 条）
 - 查询条件：`RSS：https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss`
 - 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布
@@ -8,8 +8,8 @@
 | 排名 | 文章 | 发布时间 | 简介 |
 |---|---|---|---|
 | 1 | [Rethinking Robot Safety in the Age …](https://spectrum.ieee.org/physical-ai-robot-cybersecurity-vicone) | 2026-09-16 16:51 | This article is brought to you by VicOne . Robot safety has traditionally asked: Can a machine remain safe whe |
-| 2 | [单相直接液冷已被验证适用于未来十年的超密集计算](https://content.knowledgehub.wiley.com/single-phase-direct-liquid-cooling-is-proven-for-the-next-decade-of-ultra-dense-compute/) | 2026-09-16 13:24 | 了解单相直接液冷如何应对AI和高性能计算日益增长的热量，以及它与两相冷却和浸没式冷却方案的对比。立即下载这份免费白皮书！ |
-| 3 | [面向高等教育的负责任人工智能（Responsible AI）](https://webinars.on24.com/wileyevents/ResponsibleAI) | 2026-09-14 14:18 | 本次互动式网络研讨会（webinar）将介绍不同类型的人工智能（AI），探讨人们对AI的担忧，分享我们IBM推进负责任人工智能（Responsible AI）的实践方法，并为学生提供指导，告诉他们作为个人以及IEEE分会 |
+| 2 | [单相直接液冷已被验证适用于未来十年的超密集计算](https://content.knowledgehub.wiley.com/single-phase-direct-liquid-cooling-is-proven-for-the-next-decade-of-ultra-dense-compute/) | 2026-09-16 13:24 | 了解单相直接液冷如何应对 AI 与高性能计算日益攀升的热量，以及它与两相冷却和浸没式冷却方案的对比。立即下载这份免费白皮书！ |
+| 3 | [面向高等教育的负责任AI](https://webinars.on24.com/wileyevents/ResponsibleAI) | 2026-09-14 14:18 | 这场互动式网络研讨会将介绍不同类型的AI，探讨人们对AI的担忧，分享IBM我们在负责任AI（Responsible AI）方面的实践方式，并为学生提供指导——作为个人以及IEEE分会成员，他们可以采取哪些行动。参与者还将 |
 | 4 | [How OpenAI Used Its Own LLMs to Des…](https://spectrum.ieee.org/llms-for-chip-design) | 2026-09-14 14:06 | On 25 August, OpenAI fully unveiled Jalapeño, the company’s debut AI accelerator chip. Jalapeño delivers up to |
 | 5 | [Adversarial Fashion Confronts Surve…](https://spectrum.ieee.org/adversarial-fashion) | 2026-09-14 13:00 | AI-powered cameras dot streets across the world, equipped with the power to identify faces or vehicle license  |
 | 6 | [Why Andon Labs Puts AI Agents in Ch…](https://spectrum.ieee.org/andon-labs-agentic-ai-businesses) | 2026-09-14 12:00 | Maybe you heard about the AI-controlled vending machine that stocked underwear and live fish . Or the AI manag |
@@ -35,16 +35,16 @@
 - 主题：
 - 最近推送：2026-09-16
 - 摘要来源：feed | 翻译：llm
-- 中文简介：了解单相直接液冷如何应对AI和高性能计算日益增长的热量，以及它与两相冷却和浸没式冷却方案的对比。立即下载这份免费白皮书！
+- 中文简介：了解单相直接液冷如何应对 AI 与高性能计算日益攀升的热量，以及它与两相冷却和浸没式冷却方案的对比。立即下载这份免费白皮书！
 - 原文简介：Learn how single-phase direct liquid cooling manages the rising heat of AI and high-performance computing, and how it compares with two-phase and immersion approaches. Download this free whitepaper now!
 
-### 3. 面向高等教育的负责任人工智能（Responsible AI）（2026-09-14 14:18）
+### 3. 面向高等教育的负责任AI（2026-09-14 14:18）
 
 - 链接：https://webinars.on24.com/wileyevents/ResponsibleAI
 - 主题：
 - 最近推送：2026-09-14
 - 摘要来源：feed | 翻译：llm
-- 中文简介：本次互动式网络研讨会（webinar）将介绍不同类型的人工智能（AI），探讨人们对AI的担忧，分享我们IBM推进负责任人工智能（Responsible AI）的实践方法，并为学生提供指导，告诉他们作为个人以及IEEE分会成员可以采取哪些行动。参与者还将有机会把Responsible AI方法应用于一个具体用例——IBM Bob（一个软件开发生命周期代理），并设有问答（Q&A）环节。这将是一场互动性很强的会议，请准备好手机参与互动！立即注册参加这场免费网络研讨会吧！
+- 中文简介：这场互动式网络研讨会将介绍不同类型的AI，探讨人们对AI的担忧，分享IBM我们在负责任AI（Responsible AI）方面的实践方式，并为学生提供指导——作为个人以及IEEE分会成员，他们可以采取哪些行动。参与者还将有机会把负责任AI方法应用于一个具体用例——IBM Bob（一个软件开发生命周期智能体），以及问答（Q&A）环节。这将是一场互动式会议，请准备好手机参与互动！立即注册参加这场免费的网络研讨会吧！
 - 原文简介：This interactive webinar will introduce the different types of AI, address the concerns with AI, share how we IBM are approaching Responsible AI, and offer guidance to students about what they can do - as individuals, and members of their IEEE chapters. Participants will also have the opportunity to to apply the Responsible AI approach to a particular use case - IBM Bob, a software development life cycle agent, and Q&amp;A. This will be an interactive session, so have phones ready to engage! Register now for this free webinar!
 
 ### 4. How OpenAI Used Its Own LLMs to Design Its Jalapeño Chip（2026-09-14 14:06）
@@ -116,9 +116,9 @@
 |---|---|---|
 | LLM 调用次数 | 2 | 计数 |
 | 输入 tokens | 280 | GLM usage（精确） |
-| 输出 tokens | 723 | GLM usage（精确） |
-| 合计 tokens | 1,003 | GLM usage（精确） |
+| 输出 tokens | 727 | GLM usage（精确） |
+| 合计 tokens | 1,007 | GLM usage（精确） |
 | 边际费用 | ¥0 | GLM 包月订阅（ADR-0008） |
 | GitHub API 调用 | 0 次（限额 60/时，未认证） | 计数 |
 | RSS 抓取 | 1 次 | 计数 |
-| 总耗时（获取→生成） | 61 秒 | 计时，统计系统占用时间 |
+| 总耗时（获取→生成） | 83 秒 | 计时，统计系统占用时间 |

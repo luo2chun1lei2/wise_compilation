@@ -1,6 +1,6 @@
 # CSDN AI 文章榜（2026-09-18）
 
-- 生成时间：2026-09-18 18:13
+- 生成时间：2026-09-18 19:39
 - 数据来源：CSDN 搜索接口（so.csdn.net/api/v3，时间窗过滤）
 - 查询条件：`csdn.net 搜索（q=AI，tm=2，近 3 天）`
 - 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布
@@ -15,7 +15,7 @@
 | 6 | [用Python自动化生成人工智能AI产业链全景图Word文档](https://blog.csdn.net/weixin_29231221/article/details/165835957) | weixin_29231221 | 0 | 0 | 在产业研究和工程交付中，把复杂的上下游关系整理成结构化文档，比画一张静态图更便于检索和持续更新。人工智能产业链涉及算力、数据、大模型与行业应用等多个层级，如何以文字和表格准确呈现这些节点及依赖关系，是 |
 | 7 | [从ChatBot到AI Agent：下一代人工智能的进化方向](https://blog.csdn.net/weixin_29051811/article/details/165676893) | weixin_29051811 | 0 | 0 |  |
 | 8 | [Spring AI：简化Java应用集成人工智能的开发实践](https://blog.csdn.net/weixin_31102231/article/details/165693982) | weixin_31102231 | 0 | 0 |  |
-| 9 | [Gartner 中国十大 AI 趋势：代理人工智能的模型通道，Base…](https://blog.csdn.net/weixin_34162851/article/details/165882608) | weixin_34162851 | 0 | 0 | Gartner 中国十大 AI 趋势将代理人工智能置于前排，但 Dify、LangChain、LlamaIndex 的长会话 Harness 先卡在了散落的模型通道上。在 https://taotok |
+| 9 | [Gartner 中国十大 AI 趋势：代理人工智能的模型通道，Base…](https://blog.csdn.net/weixin_34162851/article/details/165882608) | weixin_34162851 | 0 | 0 | Gartner 中国十大 AI 趋势把代理人工智能置于前排，但 Dify、LangChain、LlamaIndex 长会话 Harness 先卡在散落的模型通道。在 https://taotoken. |
 | 10 | [工信部《“人工智能+软件“专项行动实施方案》发布：企业 AI 落地，先…](https://blog.csdn.net/wuduyilian/article/details/165879522) | wuduyilian | 0 | 0 | 工信部《“人工智能+软件”专项行动实施方案》明确，到2028年实现2万家规模以上软件企业智能化覆盖，打造100个智能体标杆应用，2030年关键软件全面升级。方案强调“夯实发展基础”，将数据治理列为首要 |
 | 11 | [人工智能发展史：从神经元模型到早期AI研究](https://blog.csdn.net/weixin_28223453/article/details/165827606) | weixin_28223453 | 0 | 0 | 人工智能作为计算机科学的重要分支，其发展历程揭示了智能系统从理论到实践的演进路径。早期的神经元数学模型奠定了现代深度学习的基础，而符号主义、连接主义和控制论三大研究方向则形成了不同的技术范式。这些理论 |
 | 12 | [大模型能耗优化：AI人工智能发展方向的效率竞赛](https://blog.csdn.net/weixin_29031161/article/details/165772187) | weixin_29031161 | 0 | 0 | AI技术的快速发展带来模型能力的飞跃，但随之而来的能耗问题正成为产业落地的核心瓶颈。大模型训练与推理依赖海量算力，单次预训练耗电量可达吉瓦时级，而推理阶段因持续运行、GPU利用率低，总能耗往往超越训练 |
@@ -113,7 +113,7 @@
 - 主题：
 - 最近推送：2026-09-18
 - 摘要来源：feed | 翻译：llm
-- 中文简介：Gartner 中国十大 AI 趋势将代理人工智能置于前排，但 Dify、LangChain、LlamaIndex 的长会话 Harness 先卡在了散落的模型通道上。在 https://taotoken.net/?utm_source=taotoken_aicg_blog_end 创建 Agent 专用 Key 后，把 Dify 的 OpenAI-API-compatible 供应商、LangChain 的 .env、LlamaIndex 的 Settings.llm 统一收口到 base_url，并用双轮 RA
+- 中文简介：Gartner 中国十大 AI 趋势把代理人工智能置于前排，但 Dify、LangChain、LlamaIndex 长会话 Harness 先卡在散落的模型通道。在 https://taotoken.net/?utm_source=taotoken_aicg_blog_end 创建 Agent 专用 Key 后，把 Dify 的 OpenAI-API-compatible 供应商、LangChain 的 .env、LlamaIndex 的 Settings.llm 统一收口 base_url，并用双轮 RA
 - 原文简介：Gartner 中国十大 AI 趋势把代理人工智能置于前排，但 Dify、LangChain、LlamaIndex 长会话 Harness 先卡在散落的模型通道。在 https://taotoken.net/?utm_source=taotoken_aicg_blog_end 创建 Agent 专用 Key 后，把 Dify 的 OpenAI-API-compatible 供应商、LangChain 的 .env、LlamaIndex 的 Settings.llm 统一收口 base_url，并用双轮 RA
 
 ### 10. 工信部《“人工智能+软件“专项行动实施方案》发布：企业 AI 落地，先过“数据治理“这道关（0 赞 · 0 评论）
@@ -294,9 +294,9 @@
 |---|---|---|
 | LLM 调用次数 | 1 | 计数 |
 | 输入 tokens | 141 | GLM usage（精确） |
-| 输出 tokens | 1,804 | GLM usage（精确） |
-| 合计 tokens | 1,945 | GLM usage（精确） |
+| 输出 tokens | 1,417 | GLM usage（精确） |
+| 合计 tokens | 1,558 | GLM usage（精确） |
 | 边际费用 | ¥0 | GLM 包月订阅（ADR-0008） |
 | GitHub API 调用 | 0 次（限额 60/时，未认证） | 计数 |
 | CSDN API 调用 | 1 次（无需登录） | 计数 |
-| 总耗时（获取→生成） | 68 秒 | 计时，统计系统占用时间 |
+| 总耗时（获取→生成） | 60 秒 | 计时，统计系统占用时间 |

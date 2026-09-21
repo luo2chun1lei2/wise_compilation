@@ -1,6 +1,6 @@
 # The Berkeley Artific（2026-09-18）
 
-- 生成时间：2026-09-18 18:40
+- 生成时间：2026-09-18 18:49
 - 数据来源：RSS 订阅（https://bair.berkeley.edu/blog/feed.xml，最新 N 条）
 - 查询条件：`RSS：https://bair.berkeley.edu/blog/feed.xml`
 - 处理方式：摘要级联提取（ADR-0011）→ LLM 翻译（≤5000B，ADR-0010，GLM）；仅存档，未发布
