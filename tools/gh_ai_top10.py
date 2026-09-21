@@ -192,13 +192,13 @@ def fetch_zhihu_columns(columns, per_column, rank_by):
     return [r for r in repos if r["full_name"] and r["html_url"]]
 
 
-def fetch_rss(url, limit, ai_filter=False, extra_kws=None):
+def fetch_rss(url, limit, ai_filter=False, extra_kws=None, sitemap_dates=None):
     """RSS/Atom 采集（type: rss，ADR-0020 准入：正规订阅源，取最新 N 条）。
 
     ai_filter=True 时按标题关键词（AI_KEYWORDS + extra_kws）过滤，仅保留 AI 相关条目
     （用于泛科技媒体源，ADR-0009 工具优先——纯规则，零 LLM）。
-    """
-    """RSS/Atom 采集（type: rss，ADR-0020 准入：正规订阅源，取最新 N 条）。
+    sitemap_dates：feed 条目缺 pubDate 时，用同站 sitemap 的 <lastmod> 补日期
+    （True=自动取 host 根路径 /sitemap.xml，或显式给 URL；如 Google Developers Blog）。
 
     返回 repo 形条目：标题/链接/发布时间/摘要（summary 去 HTML 标签，feed 级）。
     """
@@ -209,6 +209,19 @@ def fetch_rss(url, limit, ai_filter=False, extra_kws=None):
     STATS["rss_api"] += 1
     d = feedparser.parse(r.content)
     feed_title = (d.feed.get("title") or url).strip()
+    date_map = {}
+    if sitemap_dates:  # sitemap 补日期（日期仅到天，无时间）
+        sm_url = sitemap_dates if isinstance(sitemap_dates, str) else \
+            re.sub(r"^(https?://[^/]+)/.*$", r"\1/sitemap.xml", url)
+        try:
+            sr = requests.get(sm_url, headers={"User-Agent": UA}, timeout=60, proxies=PROXIES)
+            STATS["rss_api"] += 1
+            for loc, lastmod in re.findall(
+                    r"<loc>([^<]+)</loc>\s*<lastmod>(\d{4}-\d{2}-\d{2})", sr.text):
+                date_map[loc.strip().rstrip("/")] = lastmod
+            print("  [rss] sitemap 补日期 %d 条（%s）" % (len(date_map), sm_url))
+        except Exception as exc:
+            print("  [rss] sitemap 日期获取失败（忽略，日期留空）：%s" % exc, file=sys.stderr)
     kws = set(k.lower() for k in AI_KEYWORDS) | set(k.lower() for k in (extra_kws or []))
     repos = []
     for e in d.entries:
@@ -226,7 +239,7 @@ def fetch_rss(url, limit, ai_filter=False, extra_kws=None):
             summary = re.sub(r"^arXiv:\S+\s*(Announce Type:\s*\w+\s*)?"
                              r"(公告类型：\s*\w+\s*)?", "", summary)
             summary = re.sub(r"^(摘要：|Abstract:)\s*", "", summary).strip()
-        published = ""
+        published = date_map.get(link.strip().rstrip("/"), "")
         raw = e.get("published") or e.get("updated") or ""
         if raw:
             try:
@@ -736,7 +749,7 @@ def render_md(entries, query, out_path, stats, elapsed, label=None):
     elif is_hn:
         title = "Hacker News 热点榜（%s）" % day
     elif is_feed:
-        feed_title = (entries[0]["meta"].get("feed_title") or "RSS 资讯")[:20]
+        feed_title = (entries[0]["meta"].get("feed_title") or "RSS 资讯")[:30]
         title = "%s（%s）" % (feed_title, day)
     elif is_zhihu_col:
         title = ("CSDN AI 文章榜（%s）" % day) if is_csdn else ("知乎 AI 专栏榜（%s）" % day)
@@ -931,7 +944,8 @@ def main():
         repos = fetch_rss(rss_cfg.get("url") or "",
                           int(rss_cfg.get("limit") or 10),
                           ai_filter=bool(rss_cfg.get("ai_filter")),
-                          extra_kws=rss_cfg.get("keywords") or [])
+                          extra_kws=rss_cfg.get("keywords") or [],
+                          sitemap_dates=rss_cfg.get("sitemap_dates"))
     elif csdn_cfg is not None:
         print("[1/5] CSDN 搜索：q=%s tm=%s size=%s days=%s" % (
             csdn_cfg.get("query"), csdn_cfg.get("tm", 2),

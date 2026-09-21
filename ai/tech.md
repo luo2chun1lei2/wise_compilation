@@ -270,6 +270,18 @@ LLM 用用户已有的 **GLM Coding Plan 包月订阅**：在其控制台生成�
 
 **新能力**：rss 适配器支持 `ai_filter`/`keywords`（标题关键词过滤）；过滤后 0 条时输出占位文档（不落错渲染分支）。启用源 **46 个**。
 
+### T18 Google Developers Blog（2026-09-21，用户问询 → SOP 调查接入）
+
+| SOP 步骤 | 结果 |
+|---|---|
+| rel=alternate 自动发现 | 首页无 feed 声明（自定义站点壳） |
+| RSS 路径 | ✅ `/feeds/posts/default/`（Blogger 标准路径，301 补斜杠后 200）；**今天仍在更新**（lastBuildDate 当日）→ 2026 活跃 |
+| 标签/参数 | `/-/<label>/` 标签 feed 全 404（该部署不支持，AI 标签服务端过滤不可用）；`alt=json/atom`、`max-results` 被忽略，固定返回 RSS 2.0 约 20 条 |
+| sitemap | ✅ `/sitemap.xml` 318KB 全量 URL 带 `<lastmod>` → 用于补日期（见下） |
+| 通道决策 | 主 feed + `ai_filter`（标题关键词）。实测 20 条命中 13；`keywords` 补 [deep learning, machine learning, neural network, embedding, Gemma, Keras, HeyGen] 后可再捞回 3 条 AI 文（cosmic signals/HeyGen/model routing），非 AI（Credentio C2PA、Passkeys Week）正确排除 |
+
+**关键缺口与解法**：该 feed 条目**无 pubDate**（缓存层剥离，只有 channel 级 lastBuildDate）→ rss 适配器新增 `sitemap_dates: true` 选项：抓同站 sitemap 建 URL→lastmod 映射回填发布日期（仅到天）。走 VPN 代理（google 域）。V27 实测：10 条、sitemap 补 504 个日期、首采 10 次 LLM（~0.8 万 tokens，后续缓存）。启用源 **47 个**。
+
 ### 新源调查标准流程（SOP，2026-09-18 固化，源自 ADR-0005 阶梯）
 
 按序探测，**首个可用通道即停**（经济原则）；阶梯失败或结论存疑时做全通道扫描：

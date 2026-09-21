@@ -207,6 +207,17 @@ sources:
     topic: news
     enabled: true
 
+  - name: google-developers-blog
+    type: rss
+    url: https://developers.googleblog.com/feeds/posts/default/
+    limit: 10
+    ai_filter: true            # 全站开发者博客，标题关键词筛 AI（T18 实测 20 条命中 13）
+    keywords: [deep learning, machine learning, neural network, embedding, Gemma, Keras, HeyGen]
+    sitemap_dates: true        # feed 无 pubDate，用同站 sitemap lastmod 补日期
+    proxy: true
+    topic: news
+    enabled: true
+
   - name: techcrunch-ai
     type: rss
     url: https://techcrunch.com/category/artificial-intelligence/feed/

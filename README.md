@@ -75,7 +75,7 @@ python3 tools/schedule.py --remove            # 移除定时
 | `topics.yaml` | 专题定义与归类关键词 | 加专题/关键词 |
 | `settings.yaml` | 运行参数 | 并发、LLM 限速、翻译字节上限（默认 5000B）、润色开关 |
 
-**当前启用的源（46 个）**：含 `juejin-ai-hot`（掘金 AI 热榜）、`arxiv-cs-ai`；国际 RSS 批（MIT TR/IEEE Spectrum AI/BAIR/MSR/GitHub Blog/Alignment Forum 等）；国内 RSS 批（雷锋网/开源中国/IT之家/爱范儿/极客公园/钛媒体/Solidot/少数派——泛科技源带 `ai_filter` 标题过滤）；github-trending 走代理。其余同前——：国外 15 个（OpenAI News、Mistral、DeepMind/Google Research 博客/blog.google AI/TechCrunch AI/Latent Space/Simon Willison/TLDR AI/Interconnects/Import AI 的 RSS，OpenAI Research 与 Anthropic Research/Engineering 的 sitemap，Hacker News 热点榜；Google/Mistral/substack 走 VPN 代理，源配置 `proxy: true`）；国内新增 InfoQ 中国 RSS；量子位 RSS；厂商 GitHub×6（Qwen/DeepSeek/智谱/Kimi/字节/腾讯混元）；GitHub Trending 与 4 个 topic 榜；知乎专栏（机器之心等）；CSDN 近 3 天。英文源标题+摘要自动合并翻译（一次调用）。
+**当前启用的源（47 个）**：含 `juejin-ai-hot`（掘金 AI 热榜）、`arxiv-cs-ai`；**Google Developers Blog**（RSS + ai_filter + sitemap 补日期，走代理）；国际 RSS 批（MIT TR/IEEE Spectrum AI/BAIR/MSR/GitHub Blog/Alignment Forum 等）；国内 RSS 批（雷锋网/开源中国/IT之家/爱范儿/极客公园/钛媒体/Solidot/少数派——泛科技源带 `ai_filter` 标题过滤）；github-trending 走代理。其余同前——：国外 16 个（OpenAI News、Mistral、DeepMind/Google Research 博客/blog.google AI/Google Developers Blog/TechCrunch AI/Latent Space/Simon Willison/TLDR AI/Interconnects/Import AI 的 RSS，OpenAI Research 与 Anthropic Research/Engineering 的 sitemap，Hacker News 热点榜；Google/Mistral/substack 走 VPN 代理，源配置 `proxy: true`）；国内新增 InfoQ 中国 RSS；量子位 RSS；厂商 GitHub×6（Qwen/DeepSeek/智谱/Kimi/字节/腾讯混元）；GitHub Trending 与 4 个 topic 榜；知乎专栏（机器之心等）；CSDN 近 3 天。英文源标题+摘要自动合并翻译（一次调用）。
 
 ## 目录结构
 

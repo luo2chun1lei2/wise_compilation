@@ -252,3 +252,10 @@
 - **实现**：①`proxy_alive()`——过代理实测 google generate_204（ensure_vpn 只查进程，探针查通道）；run_pipeline 采集前预检，不通 30s 步进等待最多 5 分钟；②阶段 1.5 从"1 轮等 30s"改为最多 3 轮、2/4/6 分钟递增。
 - **验证**：编译通过；探针实测此刻代理通（0.7s 响应）；重试合并逻辑模拟（第 2 轮成功→文件路径正确、仍失败→None、原成功→不动）；今晨失败的 3 个代理源手工补采全部成功（新增 0 条全缓存命中、0 LLM），确认源本身健康、晨间失败纯属代理抖动，3 页已发布，当日 28/28 齐。
 - **待观察**：下一个抖动日的 pipeline 日志——预检等待时长、第几轮重试救回，用于校准 5 分钟/3 轮的参数是否够。
+
+## V27 Google Developers Blog 接入（2026-09-21，T18，要求 #69）
+
+- **调查**：SOP 全通路——首页无 feed 声明；`/feeds/posts/default/` 可用且当日活跃；标签 feed 全 404（部署不支持）；`alt`/`max-results` 参数被忽略；条目**无 pubDate**；sitemap.xml 带 lastmod。
+- **实现**：rss 适配器新增 `sitemap_dates` 选项（同站 sitemap URL→lastmod 映射回填日期，仅到天，获取失败则日期留空不中断）；新源 `google-developers-blog`（feed + `ai_filter` + keywords 补英文词，proxy: true）；FOREIGN_SOURCES 加名（进国际邮件）；feed 标题截断 20→30（"Google Developers Blog" 不再被切）。
+- **实测**：首采 10 条（命中过滤 10/20 feed 条），sitemap 补 504 个日期、10/10 条目日期回填成功；LLM 10 次调用 7,797 tokens（新条目首翻，后续缓存）；复跑 0 新增（缓存生效）；wiki 页面发布 OK。
+- **启用源 47 个**；明起进入每日 06:30 常规采集与国际邮件。

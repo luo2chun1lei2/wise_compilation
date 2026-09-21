@@ -40,6 +40,7 @@ FOREIGN_SOURCES = {
     "latent-space", "simon-willison", "tldr-ai", "interconnects", "importai",
     "mistral-news", "hackernews-top", "mit-tr", "ieee-spectrum-ai", "bair-blog",
     "msr-blog", "github-blog", "alignment-forum", "arxiv-cs-ai",
+    "google-developers-blog",
 }
 
 try:
